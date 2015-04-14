@@ -18,64 +18,6 @@ beast2.add.data<- function(bxml, seq.PROT.RT, df, beast2.spec, verbose=1)
 	bxml
 }
 ######################################################################################
-#	df<- cluphy.df
-beast2.poolclusters.mincnts<- function(df, beast2.spec, verbose=1)
-{
-	if(verbose) cat(paste("\npool evenly across clu.AnyPos_T1 and fill sequences so that min cnts requested per time period is met"))
-	pool.ntip		<- beast2.spec$pool.ntip
-	cnts.requested	<- beast2.spec$pool.cnts.requested
-	breaks			<- c(Inf, beast2.spec$bdsky.sprop.changepoint.value)
-	#	add tip heights and tip periods to cluphy.df
-	tmp				<- df[, max(PosSeqT)]
-	tmp				<- as.numeric( df[, difftime(tmp, PosSeqT, units='days') / 365] )	
-	df				<- merge( df, data.table(TipHeight=tmp, TipPeriod=as.character(cut(tmp, breaks, right=FALSE)), FASTASampleCode=df[,FASTASampleCode]), by='FASTASampleCode')	
-	#	first attempt of pooling
-	clu.df			<- df[, list(clu.ntip=clu.ntip[1], clu.AnyPos_T1=clu.AnyPos_T1[1]), by="cluster"]
-	df.mxclu		<- clu.df[, { tmp<- c(which.min(clu.AnyPos_T1),which.max(clu.AnyPos_T1)); list(cluster= cluster[tmp])}]		
-	setkey(df, clu.AnyPos_T1)
-	pool.n			<- ceiling( sum( clu.df[,clu.ntip] ) / pool.ntip )
-	tmp				<- lapply( seq_len(pool.n), function(x)	seq.int(x,nrow(clu.df),by=pool.n) )
-	#	select the clusters evenly across clu.AnyPos_T1 and always add the earliest and latest cluster
-	pool.df			<- lapply(seq_along(tmp), function(i) unique(rbind(subset(clu.df[tmp[[i]],], select=cluster), df.mxclu)) )		
-	pool.df			<- lapply(seq_along(tmp), function(i) merge(pool.df[[i]], df, by="cluster") )
-	#	compute the intial numbers of selected sequences per time period
-	cnts			<- sapply(seq_along(pool.df), function(i)	table( pool.df[[i]][,TipPeriod])		)
-	if(verbose)		print(cnts)
-	if( any( na.omit(rowSums(cnts)<cnts.requested) ) )	
-		stop('total number of sequences is smaller than cnts.requested')
-	#	compute the number of sequences to be added
-	setkey(df, FASTASampleCode)	
-	cnts							<- cnts.requested - cnts
-	cnts[is.na(cnts)|cnts<=0]		<- 0
-	#	add sequences to pool	
-	for(i in seq_along(pool.df))
-		for(j in seq_len(nrow(cnts)))
-			if(cnts[j,i]>0)
-			{
-				cat(paste('\nadding sequences to pool',i,'for period',rownames(cnts)[j]))
-				#	only if cnts>0
-				#	determine clusters that can be added
-				pool.df.notin			<- setdiff( subset(df,TipPeriod==rownames(cnts)[j])[,FASTASampleCode], pool.df[[i]][,FASTASampleCode] )
-				clu.df.notin			<- unique( subset( df[pool.df.notin,], select=cluster) )
-				clu.df.notin			<- merge(df, clu.df.notin, by='cluster')
-				clu.df.notin			<- clu.df.notin[, list(clu.ntipperiod=length(which(TipPeriod==rownames(cnts)[j]))), by=cluster]	
-				#	determine clusters that will be added
-				tmp						<- clu.df.notin[,tail(which(cumsum(clu.ntipperiod)<cnts[j,i]),1),]
-				tmp						<- ifelse(length(tmp), tmp[1]+1, 1)
-				clu.df.notin			<- clu.df.notin[ seq_len( min( nrow(clu.df.notin), tmp ) ), ]
-				#	add clusters
-				pool.df[[i]]			<- rbind( pool.df[[i]], merge( df, subset(clu.df.notin, select=cluster), by='cluster') )
-				tmp						<- cnts.requested - as.numeric( table( pool.df[[i]][,TipPeriod]) )
-				tmp[is.na(tmp)|tmp<0]	<- 0 
-				cnts[,i]				<- tmp
-				cat(paste('\nnew number of sequences in pool',i,'is',nrow(pool.df[[i]])))
-			}
-	#	compute the final numbers of selected sequences per time period
-	cnts	<- sapply(seq_along(pool.df), function(i)	table( pool.df[[i]][,TipPeriod])		)
-	if(verbose)		print(cnts)
-	list(pool.df=pool.df, pool.ntip=pool.ntip)
-}
-######################################################################################
 beast2.extract.distinct.topologies<- function(mph.clu)					
 {
 	#compute if topology between retained mph.clu's is identical (branch lengths may differ)

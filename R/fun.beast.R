@@ -27,32 +27,133 @@ beast.addBEASTLabel<- function( df, df.resetTipDate=NA )
 }
 ######################################################################################
 #	pool clusters into sets containing roughly 'pool.ntip' sequences
+#' @title Pool phylogenetic clusters for separate BEAST runs  
+#' @description This function returns a list of data tables. Each data table contains the pooled taxa for a single BEAST run. See Examples.
+#' @import XML phytools ape data.table reshape2 ggplot2 
 #' @export
-beast.poolclusters<- function(cluphy.df, pool.ntip= 130, pool.includealwaysbeforeyear=NA, verbose=1)
+#' @example example/ex.beast.pool.cluster.R
+beast.pool.clusters<- function(cluphy.df, how=NA, verbose=1, ...)
 {	
-	df			<- cluphy.df[, list(clu.ntip=clu.ntip[1], clu.AnyPos_T1=clu.AnyPos_T1[1]), by="cluster"]	
-	if(!is.na(pool.includealwaysbeforeyear))
+	stopifnot(!is.na(how))
+	stopifnot(how%in%c('by.samplingtime', 'by.samplingtime.alwaysincludebeforeyear', 'by.required.seq.per.samplingperiod'))
+	if(how=='by.samplingtime')
+		return( beast.pool.clusters.by.samplingtime(cluphy.df, verbose=verbose, ...) )
+	if(how=='by.samplingtime.alwaysincludebeforeyear')
+		return( beast.pool.clusters.by.samplingtime.alwaysincludebeforeyear(cluphy.df, verbose=verbose, ...) )
+	if(how=='by.required.seq.per.samplingperiod')
+		return( beast.pool.clusters.by.requiredseq.per.samplingperiod(cluphy.df, verbose=verbose, ...) )
+}
+######################################################################################
+beast.pool.clusters.by.samplingtime.alwaysincludebeforeyear<- function(cluphy.df, pool.ntip= 130, pool.includealwaysbeforeyear=1996, verbose=1)
+{
+	stopifnot( c('CLU_ID','SAMPLINGTIME','TAXON_ID')%in%names(cluphy.df) )
+	df			<- subset(cluphy.df, select=c(TAXON_ID, CLU_ID, SAMPLINGTIME))	
+	df			<- df[, list( clu.ntip=length(TAXON_ID), clu.T1=min(SAMPLINGTIME)), by="CLU_ID"]
+	
+	df.always	<- subset(df, clu.T1<pool.includealwaysbeforeyear)
+	df			<- subset(df, clu.T1>=pool.includealwaysbeforeyear)	
+	pool.ntip	<- pool.ntip - sum(df.always[,clu.ntip])		
+	if(pool.ntip<50)
+		warning('number of non-ancestral taxas small')
+	stopifnot(pool.ntip>0)
+	setkey(df, clu.T1)
+	pool.n		<- ceiling( sum( df[,clu.ntip] ) / pool.ntip )
+	tmp			<- lapply( seq_len(pool.n), function(x)	seq.int(x,nrow(df),by=pool.n) )			
+	pool.df		<- lapply(seq_along(tmp), function(i) merge(subset(rbind(df.always, df[tmp[[i]],]), select=CLU_ID), cluphy.df, by="CLU_ID") )
+	
+	if(verbose)
+	{		
+		cat(paste("\ncall to= pool.clusters.by.samplingtime.alwaysincludebeforeyear"))
+		cat(paste("\nrequested number of seqs per pool is n=", pool.ntip+sum(df.always[,clu.ntip])))
+		cat(paste("\nalways include clusters starting before ",pool.includealwaysbeforeyear))
+		cat(paste("\nnumber of pools is n=",pool.n))
+		cat(paste("\nnumber of seq in pools is n=",paste( sapply(pool.df, nrow), sep='', collapse=', ' )))
+	} 
+	pool.df
+}
+######################################################################################
+beast.pool.clusters.by.samplingtime<- function(cluphy.df, pool.ntip= 130, verbose=1)
+{
+	stopifnot( c('CLU_ID','SAMPLINGTIME','TAXON_ID')%in%names(cluphy.df) )
+	df			<- subset(cluphy.df, select=c(TAXON_ID, CLU_ID, SAMPLINGTIME))	
+	df			<- df[, list( clu.ntip=length(TAXON_ID), clu.T1=min(SAMPLINGTIME)), by="CLU_ID"]		
+	setkey(df, clu.T1)
+	pool.n		<- ceiling( sum( df[,clu.ntip] ) / pool.ntip )
+	tmp			<- lapply( seq_len(pool.n), function(x)	seq.int(x, nrow(df),by=pool.n) )
+	pool.df		<- lapply( seq_along(tmp), function(i) merge(subset(df[tmp[[i]],], select=CLU_ID), cluphy.df, by="CLU_ID") )		
+	
+	if(verbose)
 	{
-		if(verbose) cat(paste("\nalways include clusters starting before ",pool.includealwaysbeforeyear,"and then pool evenly across clu.AnyPos_T1"))
-		df.always	<- subset(df,as.POSIXlt(clu.AnyPos_T1)$year<(pool.includealwaysbeforeyear-1900))
-		df			<- subset(df,as.POSIXlt(clu.AnyPos_T1)$year>=(pool.includealwaysbeforeyear-1900))
-		pool.ntip	<- pool.ntip - sum(df.always[,clu.ntip])		
-		setkey(df, clu.AnyPos_T1)
-		pool.n		<- ceiling( sum( df[,clu.ntip] ) / pool.ntip )
-		tmp			<- lapply( seq_len(pool.n), function(x)	seq.int(x,nrow(df),by=pool.n) )		
-		pool.df		<- lapply(seq_along(tmp), function(i) merge(subset(rbind(df.always, df[tmp[[i]],]), select=cluster), cluphy.df, by="cluster") )		
-	}
-	else
+		cat(paste("\ncall to= pool.clusters.by.samplingtime"))
+		cat(paste("\nrequested number of seqs per pool is n=", pool.ntip))
+		cat(paste("\nnumber of pools is n=",pool.n))
+		cat(paste("\nnumber of seq in pools is n=",paste( sapply(pool.df, nrow), sep='', collapse=', ' )))
+	} 
+	pool.df
+}
+######################################################################################
+beast.pool.clusters.by.requiredseq.per.samplingperiod<- function(cluphy.df, pool.ntip.guide=150, pool.ntip.min=c(50, 70, 70, NA, NA), pool.breaks=c(0, 1.596, 3.596, 5.596, 9.596, Inf), verbose=1)
+{	
+	stopifnot( c('CLU_ID','SAMPLINGTIME','TAXON_ID')%in%names(cluphy.df) )
+	df				<- copy(cluphy.df)
+	#	add tip heights and tip periods 
+	set(df, NULL, 'TipHeight', df[, max(SAMPLINGTIME)-SAMPLINGTIME] )
+	set(df, NULL, 'TipPeriod', df[, cut(TipHeight, pool.breaks, right=FALSE)] )	
+	#	first attempt of pooling
+	clu.df			<- df[, list( clu.ntip=length(TAXON_ID), clu.T1=min(SAMPLINGTIME)), by="CLU_ID"]
+	pool.n			<- ceiling( sum( clu.df[,clu.ntip] ) / pool.ntip.guide )
+	setkey(clu.df, clu.T1)
+	tmp				<- lapply( seq_len(pool.n), function(x)	seq.int(x,nrow(clu.df),by=pool.n) )
+	#	always add the earliest and latest cluster to each pool
+	df.mxclu		<- clu.df[, { tmp<- c(which.min(clu.T1),which.max(clu.T1)); list(CLU_ID= CLU_ID[tmp])}]
+	pool.df			<- lapply( seq_along(tmp), function(i) unique(rbind(subset(clu.df[tmp[[i]],], select=CLU_ID), df.mxclu)) )			
+	pool.df			<- lapply(seq_along(tmp), function(i) merge(pool.df[[i]], df, by="CLU_ID") )
+	#	compute the intial numbers of selected sequences per time period
+	cnts			<- sapply(seq_along(pool.df), function(i)	table( pool.df[[i]][,TipPeriod])		)
+	if(verbose)
 	{
-		if(verbose) cat(paste("\npool evenly across clu.AnyPos_T1"))
-		setkey(df, clu.AnyPos_T1)
-		pool.n	<- ceiling( sum( df[,clu.ntip] ) / pool.ntip )
-		tmp		<- lapply( seq_len(pool.n), function(x)	seq.int(x,nrow(df),by=pool.n) )
-		pool.df	<- lapply(seq_along(tmp), function(i) merge(subset(df[tmp[[i]],], select=cluster), cluphy.df, by="cluster") )		
-	}
-	if(verbose) cat(paste("\nnumber of pools is n=",pool.n))		
-	if(verbose) cat(paste("\nnumber of seq in pools is n=",paste( sapply(pool.df, nrow), sep='', collapse=', ' )))
-	list(pool.df=pool.df, pool.ntip=pool.ntip)
+		cat(paste("\ncall to= pool.clusters.by.requiredseq.per.samplingperiod"))
+		cat(paste("\nrequested number of seqs per pool is n=", pool.ntip.guide))		
+		cat('\ninitial number of sequences by tip height (row) and pool (col)\n')
+		print(cnts)
+	}		
+	if( any( na.omit(rowSums(cnts)<pool.ntip.min) ) )	
+		stop('total number of available sequences in one of the periods is smaller than required pool.ntip.min')	
+	#	compute the number of sequences to be added so that pool.ntip.min is satisfied
+	setkey(df, TAXON_ID)	
+	cnts							<- pool.ntip.min - cnts
+	cnts[is.na(cnts)|cnts<=0]		<- 0
+	#	add sequences to pool	
+	for(i in seq_along(pool.df))
+		for(j in seq_len(nrow(cnts)))
+			if(cnts[j,i]>0)
+			{
+				#cat(paste('\nadding sequences to pool',i,'for period',rownames(cnts)[j]))
+				#	only if cnts>0
+				#	determine clusters that can be added
+				pool.df.notin			<- setdiff( subset(df,TipPeriod==rownames(cnts)[j])[,TAXON_ID], pool.df[[i]][,TAXON_ID] )
+				clu.df.notin			<- unique( subset( df[pool.df.notin,], select=CLU_ID) )
+				clu.df.notin			<- merge(df, clu.df.notin, by='CLU_ID')
+				clu.df.notin			<- clu.df.notin[, list(clu.ntipperiod=length(which(TipPeriod==rownames(cnts)[j]))), by=CLU_ID]	
+				#	determine clusters that will be added
+				tmp						<- clu.df.notin[,tail(which(cumsum(clu.ntipperiod)<cnts[j,i]),1),]
+				tmp						<- ifelse(length(tmp), tmp[1]+1, 1)
+				clu.df.notin			<- clu.df.notin[ seq_len( min( nrow(clu.df.notin), tmp ) ), ]
+				#	add clusters
+				pool.df[[i]]			<- rbind( pool.df[[i]], merge( df, subset(clu.df.notin, select=CLU_ID), by='CLU_ID') )
+				tmp						<- pool.ntip.min - as.numeric( table( pool.df[[i]][,TipPeriod]) )
+				tmp[is.na(tmp)|tmp<0]	<- 0 
+				cnts[,i]				<- tmp
+				#cat(paste('\nnew number of sequences in pool',i,'is',nrow(pool.df[[i]])))
+			}
+	#	compute the final numbers of selected sequences per time period
+	cnts	<- sapply(seq_along(pool.df), function(i)	table( pool.df[[i]][,TipPeriod])		)		
+	if(verbose)
+	{		
+		cat('\nfinal number of sequences by tip height (row) and pool (col)\n')
+		print(cnts)
+	}		
+	pool.df	
 }
 ######################################################################################
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
