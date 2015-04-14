@@ -1,0 +1,12 @@
+Package: rBEAST
+Version: 1.0-0
+Date: 2015/04/13
+Title: rBEAST
+Author: {Oliver Ratmann}
+Maintainer: Oliver Ratmann <o.ratmann@imperial.ac.uk>
+Depends:
+    R (>= 3.1)
+Description: Automated generation of BEAST XML files, with a focus on dating
+    phylogenies of HIV sequences
+License: GPL (>=2)
+LazyLoad: yes
