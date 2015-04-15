@@ -13,13 +13,13 @@ file			<- infile.seq
 cat(paste('\nLoading file', file))
 load(file)		
 #	expect data.table "df.seq" with columns
-#	"LABEL" 	taxon name
-#	"GAG"   	gag sequence as character string
-#	"POL"   	pol sequence as character string
-#	"ENV"   	env sequence as character string
-#	"IDCLU" 	phylogenetic cluster ID of sequence, NA if not in any cluster
-#	"IDPOP"		individual ID
-set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+#	"TAXON_NAME" 	taxon name
+#	"GAG"   		gag sequence as character string
+#	"POL"   		pol sequence as character string
+#	"ENV"   		env sequence as character string
+#	"CLU_ID" 		phylogenetic cluster ID of sequence, NA if not in any cluster
+#	"TAXON_ID"		taxon ID
+set( df.seq, NULL, 'CLU_ID', df.seq[, as.integer(CLU_ID)] )
 
 #	'size' option: eg how many sequences to select
 thresh.NSEQ		<- as.numeric(substring(regmatches(select, regexpr('seq[0-9]+',select)), 4))
@@ -28,54 +28,54 @@ stopifnot(!is.na(thresh.NSEQ))
 #	pick phylogenetic clusters randomly
 if(grepl('clrndseq',select))
 {		
-	seq.select		<- df.seq[, list(CLU_N=length(LABEL)), by='IDCLU']			
-	setkey(seq.select, CLU_N, IDCLU)
-	seq.select		<- subset(unique(seq.select), CLU_N>1)
+	seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+	setkey(seq.select, CLU_N, CLU_ID)
+	seq.select		<- subset(unique(seq.select), CLU_N>2)
 	seq.select[, DUMMY:= sample(nrow(seq.select), nrow(seq.select))]
 	setkey(seq.select, DUMMY)
 	seq.select[, CLU_CN:= seq.select[, cumsum(CLU_N)]]
 	seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
-	seq.select		<- merge( df.seq, subset(seq.select, select=IDCLU), by='IDCLU' )				
+	seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )				
 }
 #	or pick sequences from largest phylogenetic clusters
 if(grepl('mseq',select))
 {	
-	seq.select		<- df.seq[, list(CLU_N=-length(LABEL)), by='IDCLU']			
-	setkey(seq.select, CLU_N, IDCLU)
-	seq.select		<- subset(unique(seq.select), CLU_N< -1)	
+	seq.select		<- df.seq[, list(CLU_N=-length(TAXON_NAME)), by='CLU_ID']			
+	setkey(seq.select, CLU_N, CLU_ID)
+	seq.select		<- subset(unique(seq.select), CLU_N< -2)	
 	seq.select[, CLU_CN:= seq.select[, cumsum(-CLU_N)]]
 	seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
-	seq.select		<- merge( df.seq, subset(seq.select, select=IDCLU), by='IDCLU' )									
+	seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )									
 }
 #	or pick sequences from smallest phylogenetic clusters
 if(grepl('clsmseq',select))
 {
-	seq.select		<- df.seq[, list(CLU_N=length(LABEL)), by='IDCLU']			
-	setkey(seq.select, CLU_N, IDCLU)
-	seq.select		<- subset(unique(seq.select), CLU_N>1)	
+	seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+	setkey(seq.select, CLU_N, CLU_ID)
+	seq.select		<- subset(unique(seq.select), CLU_N>2)	
 	seq.select[, CLU_CN:= seq.select[, cumsum(CLU_N)]]
 	seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
-	seq.select		<- merge( df.seq, subset(seq.select, select=IDCLU), by='IDCLU' )					
+	seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )					
 }
 #	or pick sequences of all phylogenetic clusters of size >= x
 if(grepl('cseq',select))
 {				
-	seq.select		<- df.seq[, list(CLU_N=length(LABEL)), by='IDCLU']			
-	setkey(seq.select, CLU_N, IDCLU)
+	seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+	setkey(seq.select, CLU_N, CLU_ID)
 	seq.select		<- subset(unique(seq.select), CLU_N>=thresh.NSEQ)	
-	seq.select		<- merge( df.seq, subset(seq.select, select=IDCLU), by='IDCLU' )					
+	seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )					
 }
-cat(paste('\nFound clusters, n=', seq.select[, length(unique(IDCLU))])) 
-cat(paste('\nFound sequences, n=', seq.select[, length(unique(IDPOP))]))
+cat(paste('\nFound clusters, n=', seq.select[, length(unique(CLU_ID))])) 
+cat(paste('\nFound sequences, n=', seq.select[, length(unique(TAXON_ID))]))
 #
 #	read starting trees for each cluster phylogeny
 #		
 phd					<- read.tree(infile.starttrees)
-tmp2				<- data.table(IDPOP= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
-set( tmp2, NULL, 'IDPOP', tmp2[, as.integer(substring(sapply(strsplit(IDPOP, tree.label.sep, fixed=TRUE),'[[',tree.label.idx.idpop),7)) ] )
-tmp2				<- merge(subset(seq.select, select=c(IDPOP, IDCLU)), tmp2, by='IDPOP')			
+tmp2				<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.label.sep, fixed=TRUE),'[[',tree.label.idx.idpop),7)) ] )
+tmp2				<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
 phd					<- lapply(tmp2[,IDX], function(i) phd[[i]] )
-names(phd)			<- tmp2[, IDCLU]
+names(phd)			<- tmp2[, CLU_ID]
 # 	plot starting trees
 \dontrun{
 phd.plot			<- eval(parse(text=paste('phd[[',seq_along(phd),']]', sep='',collapse='+')))			
@@ -87,7 +87,7 @@ dev.off()
 #
 #	create XML file for POL
 #			
-seq.select.pol	<- subset(seq.select, select=c("IDCLU", "IDPOP", "LABEL", "POL" ))
+seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "POL" ))
 setnames(seq.select.pol, 'POL', 'SEQ')
 file.name		<- gsub('_seq.R',paste('_HKY_fixedtree_',select,'.xml',sep=''),infile.seq)
 bxml			<- beastscript.multilocus.codon.gtr( file.name, seq.select.pol, phd, verbose=1 )
