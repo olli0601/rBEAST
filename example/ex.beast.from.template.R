@@ -1,0 +1,50 @@
+require(rBEAST)
+
+infile.seq				<- '~/git/rBEAST/inst/extra/sim_150416_seq.R'
+infile.tree				<- '~/git/rBEAST/inst/extra/sim_150416_njtree.R'
+infile.xml.template		<- '~/git/rBEAST/inst/xml_templates/BEAST_template_um192rhU2080.xml'
+outdir.xml				<- '~/git/rBEAST/inst/extra'
+outfile.xml				<- 'sim_150416_um192rhU2080.xml'
+
+#	load data
+load(infile.seq)		
+#	expect data.table "df.seq" with columns
+#	"TAXON_ID"		taxon ID
+#	"TAXON_NAME" 	taxon name
+#	"SAMPLINGTIME"	taxon sampling time
+#	"GAG"   		gag sequence as character string
+#	"POL"   		pol sequence as character string
+#	"ENV"   		env sequence as character string
+#	"CLU_ID" 		phylogenetic cluster ID of sequence
+
+#	use POL sequences
+setnames(df.seq,'POL','SEQ')
+#	load tree
+load(infile.tree)
+#	expect ape tree 'ph'
+
+#	illustrate automatic generation of multiple XML files, each for one pool of sequences
+#	with monophyly constraints on phylogenetic clusters.
+#	with this option, an appropriate starting tree should be specified
+#
+#	group clusters into separate pools
+df.clupool	<- beast.pool.clusters(df.seq, how='by.samplingtime', pool.ntip=300, verbose=1)
+#	generate XML file from template
+for( pid in seq_along(df.clupool) )
+{
+	df			<- df.clupool[[pid]]	
+	#	get newick start tree for all sequences in pool
+	start.tree	<- beast.get.startingtree(ph, df, verbose=1)				
+	#	get xml file from template			
+	bxml		<- beastxml.from.template(infile.xml.template, df, start.tree=start.tree, xml.taxonsets4clusters=1, xml.monophyly4clusters=1,  verbose=1)
+	#	adjust xml file depending on the template that is used
+	beast.adjust.gmrfSkyrideLikelihood(bxml, df, verbose=1)				
+	beast.adjust.prior.rootheight(bxml, df, rootHeight.idref='treeModel.rootHeight', verbose=1)
+	beast.adjust.mcmc(bxml, 
+			mcmc.chainLength=beast.mcmc.chainLength, 
+			mcmc.logEvery=beast.mcmc.chainLength/1e4, 
+			mcmc.outfile=gsub('.xml', paste('_pool',pid,'.xml',sep=''),outfile.xml), 
+			verbose=1)
+	#	write to file
+	saveXML(bxml, file=paste(outdir.xml,gsub('.xml', paste('_pool',pid,'.xml',sep=''),outfile.xml),sep='/'))	
+}

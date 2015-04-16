@@ -1,0 +1,330 @@
+<?xml version="1.0"?>
+<beast>
+  <!-- The unique patterns for codon positions 1 & 2                           -->
+  <mergePatterns id="CP1+2.patterns">
+    <!-- The unique patterns from 1 to end every 3                               -->
+    <!-- npatterns=256                                                           -->
+    <patterns from="1" every="3" strip="false">
+      <alignment idref="alignment"/>
+    </patterns>
+    <!-- The unique patterns from 2 to end every 3                               -->
+    <!-- npatterns=202                                                           -->
+    <patterns from="2" every="3" strip="false">
+      <alignment idref="alignment"/>
+    </patterns>
+  </mergePatterns>
+  <!-- The unique patterns for codon position 3                                -->
+  <!-- The unique patterns from 3 to end every 3                               -->
+  <!-- npatterns=425                                                           -->
+  <patterns id="CP3.patterns" from="3" every="3" strip="false">
+    <alignment idref="alignment"/>
+  </patterns>
+  <!-- This is a simple constant population size coalescent model              -->
+  <!-- that is used to generate an initial tree for the chain.                 -->
+  <constantSize id="initialDemo" units="years">
+    <populationSize>
+      <parameter id="initialDemo.popSize" value="100.0"/>
+    </populationSize>
+  </constantSize>
+  <!-- Construct a rough-and-ready UPGMA tree as an starting tree              -->
+  <upgmaTree id="startingTree" rootHeight="35.0">
+    <distanceMatrix correction="JC">
+      <patterns>
+        <!-- To generate UPGMA starting tree, only use the 1st aligment, which may be 1 of many aligments using this tree.-->
+        <alignment idref="alignment"/>
+      </patterns>
+    </distanceMatrix>
+  </upgmaTree>
+  <!-- Generate a tree model                                                   -->
+  <treeModel id="treeModel">
+    <upgmaTree idref="startingTree"/>
+    <rootHeight>
+      <parameter id="treeModel.rootHeight"/>
+    </rootHeight>
+    <nodeHeights internalNodes="true">
+      <parameter id="treeModel.internalNodeHeights"/>
+    </nodeHeights>
+    <nodeHeights internalNodes="true" rootNode="true">
+      <parameter id="treeModel.allInternalNodeHeights"/>
+    </nodeHeights>
+  </treeModel>  
+  <!-- Generate a gmrfSkyrideLikelihood for GMRF Bayesian Skyride process      -->
+  <gmrfSkyrideLikelihood id="skyride" timeAwareSmoothing="true" randomizeTree="true">
+    <populationSizes>
+      <!-- skyride.logPopSize is in log units unlike other popSize                 -->
+      <parameter id="skyride.logPopSize" dimension="376" value="2.0541237336955462"/>
+    </populationSizes>
+    <groupSizes>
+      <parameter id="skyride.groupSize" dimension="376"/>
+    </groupSizes>
+    <precisionParameter>
+      <parameter id="skyride.precision" value="1.0" lower="0.0"/>
+    </precisionParameter>
+    <populationTree>
+      <treeModel idref="treeModel"/>
+    </populationTree>
+  </gmrfSkyrideLikelihood>
+  <!-- The uncorrelated relaxed clock (Drummond, Ho, Phillips & Rambaut (2006) PLoS Biology 4, e88 )-->
+  <discretizedBranchRates id="branchRates">
+    <treeModel idref="treeModel"/>
+    <distribution>
+      <logNormalDistributionModel meanInRealSpace="true">
+        <mean>
+          <parameter id="ucld.mean" value="0.0019" lower="0.0"/>
+        </mean>
+        <stdev>
+          <parameter id="ucld.stdev" value="0.3333333333333333" lower="0.0"/>
+        </stdev>
+      </logNormalDistributionModel>
+    </distribution>
+    <rateCategories>
+      <parameter id="branchRates.categories"/>
+    </rateCategories>
+  </discretizedBranchRates>
+  <rateStatistic id="meanRate" name="meanRate" mode="mean" internal="true" external="true">
+    <treeModel idref="treeModel"/>
+    <discretizedBranchRates idref="branchRates"/>
+  </rateStatistic>
+  <rateStatistic id="coefficientOfVariation" name="coefficientOfVariation" mode="coefficientOfVariation" internal="true" external="true">
+    <treeModel idref="treeModel"/>
+    <discretizedBranchRates idref="branchRates"/>
+  </rateStatistic>
+  <rateCovarianceStatistic id="covariance" name="covariance">
+    <treeModel idref="treeModel"/>
+    <discretizedBranchRates idref="branchRates"/>
+  </rateCovarianceStatistic>
+  <!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)             -->
+  <HKYModel id="CP1+2.hky">
+    <frequencies>
+      <frequencyModel dataType="nucleotide">
+        <frequencies>
+          <parameter id="CP1+2.frequencies" value="0.25 0.25 0.25 0.25"/>
+        </frequencies>
+      </frequencyModel>
+    </frequencies>
+    <kappa>
+      <parameter id="CP1+2.kappa" value="2.0" lower="0.0"/>
+    </kappa>
+  </HKYModel>
+  <!-- The HKY substitution model (Hasegawa, Kishino & Yano, 1985)             -->
+  <HKYModel id="CP3.hky">
+    <frequencies>
+      <frequencyModel dataType="nucleotide">
+        <frequencies>
+          <parameter id="CP3.frequencies" value="0.25 0.25 0.25 0.25"/>
+        </frequencies>
+      </frequencyModel>
+    </frequencies>
+    <kappa>
+      <parameter id="CP3.kappa" value="2.0" lower="0.0"/>
+    </kappa>
+  </HKYModel>
+  <!-- site model                                                              -->
+  <siteModel id="CP1+2.siteModel">
+    <substitutionModel>
+      <HKYModel idref="CP1+2.hky"/>
+    </substitutionModel>
+    <relativeRate>
+      <parameter id="CP1+2.mu" value="1.0" lower="0.0"/>
+    </relativeRate>
+    <gammaShape gammaCategories="6">
+      <parameter id="CP1+2.alpha" value="0.5" lower="0.0"/>
+    </gammaShape>
+  </siteModel>
+  <!-- site model                                                              -->
+  <siteModel id="CP3.siteModel">
+    <substitutionModel>
+      <HKYModel idref="CP3.hky"/>
+    </substitutionModel>
+    <relativeRate>
+      <parameter id="CP3.mu" value="1.0" lower="0.0"/>
+    </relativeRate>
+    <gammaShape gammaCategories="6">
+      <parameter id="CP3.alpha" value="0.5" lower="0.0"/>
+    </gammaShape>
+  </siteModel>
+  <compoundParameter id="allMus">
+    <parameter idref="CP1+2.mu"/>
+    <parameter idref="CP3.mu"/>
+  </compoundParameter>
+  <!-- Likelihood for tree given sequence data                                 -->
+  <treeLikelihood id="CP1+2.treeLikelihood" useAmbiguities="false">
+    <mergePatterns idref="CP1+2.patterns"/>
+    <treeModel idref="treeModel"/>
+    <siteModel idref="CP1+2.siteModel"/>
+    <discretizedBranchRates idref="branchRates"/>
+  </treeLikelihood>
+  <!-- Likelihood for tree given sequence data                                 -->
+  <treeLikelihood id="CP3.treeLikelihood" useAmbiguities="false">
+    <patterns idref="CP3.patterns"/>
+    <treeModel idref="treeModel"/>
+    <siteModel idref="CP3.siteModel"/>
+    <discretizedBranchRates idref="branchRates"/>
+  </treeLikelihood>
+  <!-- Define operators                                                        -->
+  <operators id="operators" optimizationSchedule="log">
+    <scaleOperator scaleFactor="0.75" weight="0.1">
+      <parameter idref="CP1+2.kappa"/>
+    </scaleOperator>
+    <scaleOperator scaleFactor="0.75" weight="0.1">
+      <parameter idref="CP3.kappa"/>
+    </scaleOperator>
+    <deltaExchange delta="0.01" weight="0.1">
+      <parameter idref="CP1+2.frequencies"/>
+    </deltaExchange>
+    <deltaExchange delta="0.01" weight="0.1">
+      <parameter idref="CP3.frequencies"/>
+    </deltaExchange>
+    <scaleOperator scaleFactor="0.75" weight="0.1">
+      <parameter idref="CP1+2.alpha"/>
+    </scaleOperator>
+    <scaleOperator scaleFactor="0.75" weight="0.1">
+      <parameter idref="CP3.alpha"/>
+    </scaleOperator>
+    <deltaExchange delta="0.75" parameterWeights="1083 541" weight="2">
+      <parameter idref="allMus"/>
+    </deltaExchange>
+    <scaleOperator scaleFactor="0.75" weight="3">
+      <parameter idref="ucld.stdev"/>
+    </scaleOperator>
+    <subtreeSlide size="0.78" gaussian="true" weight="15">
+      <treeModel idref="treeModel"/>
+    </subtreeSlide>
+    <narrowExchange weight="15">
+      <treeModel idref="treeModel"/>
+    </narrowExchange>
+    <wideExchange weight="3">
+      <treeModel idref="treeModel"/>
+    </wideExchange>
+    <wilsonBalding weight="3">
+      <treeModel idref="treeModel"/>
+    </wilsonBalding>
+    <scaleOperator scaleFactor="0.75" weight="3">
+      <parameter idref="treeModel.rootHeight"/>
+    </scaleOperator>
+    <uniformOperator weight="30">
+      <parameter idref="treeModel.internalNodeHeights"/>
+    </uniformOperator>
+    <gmrfBlockUpdateOperator scaleFactor="2.0" weight="2">
+      <gmrfSkyrideLikelihood idref="skyride"/>
+    </gmrfBlockUpdateOperator>
+    <swapOperator size="1" weight="10" autoOptimize="false">
+      <parameter idref="branchRates.categories"/>
+    </swapOperator>
+    <uniformIntegerOperator weight="10">
+      <parameter idref="branchRates.categories"/>
+    </uniformIntegerOperator>
+  </operators>
+  <!-- Define MCMC                                                             -->
+  <mcmc id="mcmc" chainLength="50000000" autoOptimize="true" operatorAnalysis="ops.ops">
+    <posterior id="posterior">
+      <prior id="prior">
+        <logNormalPrior mean="1.0" stdev="1.25" offset="0.0" meanInRealSpace="false">
+          <parameter idref="CP1+2.kappa"/>
+        </logNormalPrior>
+        <logNormalPrior mean="1.0" stdev="1.25" offset="0.0" meanInRealSpace="false">
+          <parameter idref="CP3.kappa"/>
+        </logNormalPrior>
+        <normalPrior mean="0.85" stdev="0.05">
+          <parameter idref="CP1+2.mu"/>
+        </normalPrior>
+        <normalPrior mean="1.25" stdev="0.1">
+          <parameter idref="CP3.mu"/>
+        </normalPrior>
+        <uniformPrior lower="0.0" upper="1.0">
+          <parameter idref="CP1+2.frequencies"/>
+        </uniformPrior>
+        <uniformPrior lower="0.0" upper="1.0">
+          <parameter idref="CP3.frequencies"/>
+        </uniformPrior>
+        <exponentialPrior mean="0.5" offset="0.0">
+          <parameter idref="CP1+2.alpha"/>
+        </exponentialPrior>
+        <exponentialPrior mean="0.5" offset="0.0">
+          <parameter idref="CP3.alpha"/>
+        </exponentialPrior>
+        <exponentialPrior mean="0.3333333333333333" offset="0.0">
+          <parameter idref="ucld.stdev"/>
+        </exponentialPrior>
+        <uniformPrior lower="0.001" upper="0.002">
+          <parameter idref="ucld.mean"/>
+        </uniformPrior>
+	<uniformPrior lower="20.0" upper="80.0">
+	  <parameter idref="treeModel.rootHeight"/>
+	</uniformPrior>
+        <gammaPrior shape="0.0010" scale="1000.0" offset="0.0">
+          <parameter idref="skyride.precision"/>
+        </gammaPrior>
+        <gmrfSkyrideLikelihood idref="skyride"/>
+      </prior>
+      <likelihood id="likelihood">
+        <treeLikelihood idref="CP1+2.treeLikelihood"/>
+        <treeLikelihood idref="CP3.treeLikelihood"/>
+      </likelihood>
+    </posterior>
+    <operators idref="operators"/>
+    <!-- write log to screen                                                     -->
+    <log id="screenLog" logEvery="10000">
+      <column label="Posterior" dp="4" width="12">
+        <posterior idref="posterior"/>
+      </column>
+      <column label="Prior" dp="4" width="12">
+        <prior idref="prior"/>
+      </column>
+      <column label="Likelihood" dp="4" width="12">
+        <likelihood idref="likelihood"/>
+      </column>
+      <column label="rootHeight" sf="6" width="12">
+        <parameter idref="treeModel.rootHeight"/>
+      </column>
+      <column label="ucld.mean" sf="6" width="12">
+        <parameter idref="ucld.mean"/>
+      </column>
+    </log>
+    <!-- write log to file                                                       -->
+    <log id="fileLog" logEvery="10000" fileName="fileLog.log" overwrite="false">
+      <posterior idref="posterior"/>
+      <prior idref="prior"/>
+      <likelihood idref="likelihood"/>
+      <parameter idref="treeModel.rootHeight"/>
+      <parameter idref="skyride.precision"/>
+      <parameter idref="skyride.logPopSize"/>
+      <parameter idref="skyride.groupSize"/>
+      <parameter idref="CP1+2.kappa"/>
+      <parameter idref="CP3.kappa"/>
+      <parameter idref="CP1+2.frequencies"/>
+      <parameter idref="CP3.frequencies"/>
+      <parameter idref="CP1+2.alpha"/>
+      <parameter idref="CP3.alpha"/>
+      <compoundParameter idref="allMus"/>
+      <parameter idref="ucld.mean"/>
+      <parameter idref="ucld.stdev"/>
+      <rateStatistic idref="meanRate"/>
+      <rateStatistic idref="coefficientOfVariation"/>
+      <rateCovarianceStatistic idref="covariance"/>
+      <treeLikelihood idref="CP1+2.treeLikelihood"/>
+      <treeLikelihood idref="CP3.treeLikelihood"/>
+      <gmrfSkyrideLikelihood idref="skyride"/>      
+    </log>
+    <!-- write tree log to file                                                  -->
+    <logTree id="treeFileLog" logEvery="10000" nexusFormat="true" fileName="timetrees.timetrees" sortTranslationTable="true">
+      <treeModel idref="treeModel"/>
+      <trait name="rate" tag="rate">
+        <discretizedBranchRates idref="branchRates"/>
+      </trait>
+      <posterior idref="posterior"/>
+    </logTree>
+    <logTree id="substTreeFileLog" logEvery="10000" nexusFormat="true" fileName="substtrees.substtrees" branchLengths="substitutions">
+      <treeModel idref="treeModel"/>
+      <discretizedBranchRates idref="branchRates"/>
+      <trait name="rate" tag="rate">
+        <discretizedBranchRates idref="branchRates"/>
+      </trait>
+    </logTree>
+  </mcmc>
+  <report>
+    <property name="timer">
+      <mcmc idref="mcmc"/>
+    </property>
+  </report>
+</beast>

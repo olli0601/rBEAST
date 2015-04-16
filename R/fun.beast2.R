@@ -428,23 +428,7 @@ beast2.add.sasky.serialpriors<- function(bxml, beast2.spec, verbose=1)
 	dummy		<- newXMLCommentNode(text="end: serial SASKY priors.", parent=bxml.prior, doc=bxml, addFinalizer=T)
 	bxml.prior
 }
-######################################################################################
-beast2.get.startingtree<- function(ph, df, beast2.spec, verbose=1)
-{
-	require(adephylo)
-	if(verbose) cat(paste("\ncreate startingTree with root height=",beast2.spec$starttree.rootHeight))
-	tmp					<- match( setdiff( ph$tip.label, df[,FASTASampleCode] ), ph$tip.label)
-	ph.start			<- drop.tip(ph, tmp)		
-	ph.start$node.label	<- NULL
-	setkey(df, FASTASampleCode)
-	ph.start$tip.label	<- df[ph.start$tip.label,][,BEASTlabel]
-	if(verbose) cat(paste("\nselected tips for startingTree, n=",Ntip(ph.start)))
-	#	adjust rootHeight to 'beast.rootHeight'	
-	ph.start$edge.length<- ph.start$edge.length	*	beast2.spec$starttree.rootHeight / max(distRoot(ph.start))
-	if(verbose) cat(paste("\nadjusted root height=",max(distRoot(ph.start))))	
-	if(beast2.spec$starttree.rootHeight>=beast2.spec$bdsky.origin.value)	stop('Detected invalid rootHeight. Must be smaller than origin.value.')
-	write.tree( ph.start )		
-}
+
 ######################################################################################
 beast2.get.specifications	<- function(xml.dir=NA, xml.filename=NA, mcmc.length=20e6, bdsky.intervalNumber=4, alignment.filter=NA, tip.log.stem=FALSE, cluster.log=FALSE, cluster.monophyletic=FALSE)
 {

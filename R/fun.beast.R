@@ -1,29 +1,41 @@
 
 ######################################################################################
-#	get BEAST taxon labels:		cluster	FASTASampleCode	NegT	AnyPosT	SeqT  -> turn date into numerical format
+#' @title Set TAXON_NAME field from columns in the taxon data.table.
+#' @return Taxon data.table with additional column TAXON_NAME.
 #' @export
-beast.addBEASTLabel<- function( df, df.resetTipDate=NA )
+beast.set.TAXON_NAME<- function( df, select=c('TAXON_ID'), select.sep='_')
+{	
+	stopifnot('TAXON_ID'%in%names(df), select%in%names(df))
+	tmp		<- df[, list(TAXON_NAME=paste(.SD ,sep='', collapse=select.sep)), by='TAXON_ID', .SDcols=select]
+	merge(df, tmp, by="TAXON_ID")	
+}
+######################################################################################
+#' @title Set SEQ field from sequences in sequences in \code{DNAbin} matrix format
+#' @description Sequences whose name matches the TAXON_ID field are added to the taxon data.table. 
+#' @return Taxon data.table with additional column SEQ that contains sequences as a character string.
+#' @export
+beast.set.SEQ	<- function(df, seq, verbose=1)
 {
-	if(is.na(df.resetTipDate))
-		df[,dummy:=NA]
-	else if(df.resetTipDate=="LdTd")
-		df	<- merge(df, df[,list(dummy=max(AnyPos_T1)),by="cluster"])
-	else if(df.resetTipDate=="LsTd")
-		df	<- merge(df, df[,list(dummy=max(PosSeqT)),by="cluster"])
-	else if(df.resetTipDate=="UmTd")
-		df[,dummy:=max(df[,PosSeqT])]
-	else
-		stop("Unexpected df.resetTipDate")
-	df	<- merge(df, df[,list(PosSeqTadj= max(PosSeqT, dummy, na.rm=T)),by="FASTASampleCode"], by="FASTASampleCode")
-	
-	tmp	<- df[,		{
-				z	<- as.POSIXlt(c(NegT, AnyPos_T1, PosSeqT, PosSeqTadj))
-				tmp	<- z$year + 1900
-				z	<- tmp + round( z$yday / ifelse((tmp%%4==0 & tmp%%100!=0) | tmp%%400==0,366,365), d=3 )												
-				list(BEASTlabel= paste(c(cluster, z, FASTASampleCode), collapse='_', sep=''))
-			}, by="FASTASampleCode"]
-	df	<- merge(df, tmp, by="FASTASampleCode")
-	subset(df,select=-which(colnames(df)=="dummy"))	
+	stopifnot( class(seq)=='DNAbin', is.matrix(seq) )
+	stopifnot( 'TAXON_ID'%in%names(df))
+	setkey(df, TAXON_ID)
+	tmp	<- setdiff( df[, TAXON_ID], rownames(seq) )
+	if(length(tmp))
+	{
+		if(verbose)
+			cat(paste('\nFound TAXON_IDs with no sequence, removing data.table entries, n=', length(tmp)))
+		df	<- df[rownames(seq),]
+	}
+	tmp	<- setdiff( rownames(seq), df[, TAXON_ID] )
+	if(length(tmp))
+	{
+		if(verbose)
+			cat(paste('\nFound sequences with no TAXON_ID in data.table, removing sequences, n=', length(tmp)))
+		seq	<- seq[df[, TAXON_ID],]
+	}
+	tmp		<- as.character(seq)
+	tmp		<- data.table( SEQ=apply(tmp,1,function(x) paste(x, collapse='')), TAXON_ID=rownames(tmp) )	
+	merge(df, tmp, by='TAXON_ID')		
 }
 ######################################################################################
 #	pool clusters into sets containing roughly 'pool.ntip' sequences
@@ -32,6 +44,8 @@ beast.addBEASTLabel<- function( df, df.resetTipDate=NA )
 #' @import XML phytools ape data.table reshape2 ggplot2 
 #' @export
 #' @example example/ex.beast.pool.cluster.R
+#' @example example/ex.beast.from.template.R
+#' @seealso \code{\link{beastxml.from.template}}
 beast.pool.clusters<- function(cluphy.df, how=NA, verbose=1, ...)
 {	
 	stopifnot(!is.na(how))
@@ -158,28 +172,26 @@ beast.pool.clusters.by.requiredseq.per.samplingperiod<- function(cluphy.df, pool
 ######################################################################################
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
 #	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; beast.alignment.dataType= "nucleotide"; xml.resetTipDate2LastDiag=1
+#' @title	Add taxa to XML file
 #' @export
-beast.add.taxa<- function(bxml, df, beast.label.datepos= 4, beast.label.sep= '_', beast.date.direction= "forwards", beast.date.units= "years", verbose=1)
+beast.add.taxa<- function(bxml, df, beast.date.direction= "forwards", beast.date.units= "years", verbose=1)
 {			
+	stopifnot(c('TAXON_NAME','SAMPLINGTIME')%in%names(df))
 	bxml.beast	<- getNodeSet(bxml, "//beast")[[1]]
 	#	check if any taxa to be added
 	bxml.beast.existing.taxa.id		<- unlist( xpathApply(bxml.beast, "taxa/taxon", xmlGetAttr, "id" ) )
-	tmp								<- subset( df, !BEASTlabel%in%bxml.beast.existing.taxa.id )
+	tmp								<- subset( df, !TAXON_NAME%in%bxml.beast.existing.taxa.id )
 	#	add taxa if needed
 	if(nrow(tmp))
 	{		
-		tmp.label	<- tmp[,BEASTlabel]	
-		if(verbose)	cat(paste("\nsetting tip date to time at pos x in label, x=", beast.label.datepos))
-		tmp.date	<- sapply( strsplit(tmp.label, beast.label.sep, fixed=1), function(x) x[beast.label.datepos] )		
-		dummy		<- newXMLCommentNode(text="The list of taxa to be analysed (can also include dates/ages).", parent=bxml.beast, doc=bxml, addFinalizer=T)
-		dummy		<- newXMLCommentNode(text=paste("ntax=",nrow(tmp),sep=''), parent=bxml.beast, doc=bxml, addFinalizer=T)	
+		invisible(newXMLCommentNode(text="The list of taxa to be analysed (can also include dates/ages).", parent=bxml.beast, doc=bxml, addFinalizer=T))
+		invisible(newXMLCommentNode(text=paste("ntax=",nrow(tmp),sep=''), parent=bxml.beast, doc=bxml, addFinalizer=T))	
 		seqtaxa		<- newXMLNode("taxa", attrs= list(id="taxa"), parent=bxml.beast, doc=bxml, addFinalizer=T)
-		dummy		<- lapply(seq_along(tmp.label), function(i)
-				{
-					taxon	<- newXMLNode("taxon", attrs= list(id=tmp.label[i]), parent=seqtaxa, doc=bxml, addFinalizer=T )
-					dummy	<- newXMLNode("date", attrs= list(value=tmp.date[i], direction=beast.date.direction, units=beast.date.units), parent=taxon, doc=bxml, addFinalizer=T )
-					taxon
-				})	
+		invisible(tmp[, {
+					taxon	<- newXMLNode("taxon", attrs= list(id=TAXON_NAME), parent=seqtaxa, doc=bxml, addFinalizer=T )
+					dummy	<- newXMLNode("date", attrs= list(value=SAMPLINGTIME, direction=beast.date.direction, units=beast.date.units), parent=taxon, doc=bxml, addFinalizer=T )
+					NULL
+				}, by='TAXON_NAME'])
 		if(verbose)	cat(paste("\nadded new seq taxa, n=", xmlSize(seqtaxa)))		
 	}
 	invisible(bxml)
@@ -188,7 +200,33 @@ beast.add.taxa<- function(bxml, df, beast.label.datepos= 4, beast.label.sep= '_'
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
 #	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; beast.alignment.dataType= "nucleotide"; xml.resetTipDate2LastDiag=1
 #' @export
-beast.add.alignment<- function(bxml, seq.PROT.RT, beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
+beast.add.alignment<- function(bxml, df, df.seqfield='SEQ', beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
+{			
+	stopifnot(df.seqfield%in%names(df))
+	bxml.beast	<- getNodeSet(bxml, "//beast")[[1]]
+	tmp			<- unlist( xpathApply(bxml.beast, "taxa/taxon", xmlGetAttr, "id" ) )
+	tmp			<- length(setdiff( df[, TAXON_NAME], tmp ))
+	if( tmp )
+		stop(paste('\nFound TAXON_NAME that are not an xml taxa. Call first beast.add.taxa. n=', tmp))
+	if( length(getNodeSet(bxml, paste("//alignment[@id='",beast.alignment.id,"']", sep='')))>0 )
+		stop(paste('\nAlready exists: alignment with id',beast.alignment.id )) 
+	setnames(df, df.seqfield, 'x_THISSEQ')
+	#	add alignment	
+	invisible(newXMLCommentNode(text="The sequence alignment (each sequence refers to a taxon above).", parent=bxml.beast, doc=bxml, addFinalizer=T))
+	invisible(newXMLCommentNode(text=paste("ntax=",nrow(df)," nchar=",nchar(df[[df.seqfield]][1]),sep=''), parent=bxml.beast, doc=bxml, addFinalizer=T))	
+	seqalign	<- newXMLNode("alignment", attrs= list(id=beast.alignment.id, dataType=beast.alignment.dataType), parent=bxml.beast, doc=bxml, addFinalizer=T)
+	invisible(df[, {
+				seq		<- newXMLNode("sequence", parent=seqalign, doc=bxml, addFinalizer=T)
+				invisible(newXMLNode("taxon", attrs= list(idref=TAXON_NAME), parent=seq, doc=bxml, addFinalizer=T))
+				invisible(newXMLTextNode(text=x_THISSEQ, parent=seq, doc=bxml,addFinalizer=T))
+				NULL
+			}, by='TAXON_NAME'])	
+	setnames(df, 'x_THISSEQ', df.seqfield)
+	if(verbose)	cat(paste("\nadded new alignment with seqs, n=", xmlSize(seqalign)))	
+	invisible(bxml)
+}
+######################################################################################
+beast.add.alignment.fromDNAbin<- function(bxml, seq.PROT.RT, beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
 {			
 	bxml.beast	<- getNodeSet(bxml, "//beast")[[1]]
 	df			<- data.table(FASTASampleCode=rownames(seq.PROT.RT), BEASTlabel=rownames(seq.PROT.RT))	
@@ -320,103 +358,92 @@ beast.read.log2tstem<- function(file.log, file.xml, beastlabel.idx.samplecode=6,
 	ans	<- rbindlist(ans)
 }		
 ######################################################################################
+#' @title Add monophylyStatistics for each phylogenetic cluster to XML file
 #' @export
-beast.add.taxonsets4clusters<- function(bxml, df, xml.monophyly4clusters=1, verbose=1)
-{
-	bxml.treeModel.id			<- unlist(xpathApply(bxml, "//treeModel[@id]", xmlGetAttr, "id"))
-	
-	#get taxon sets for each cluster
-	btaxonsets.clusters			<- beast.get.taxonsets4clusters(bxml, df)	
-	#get tmrcaStatistic for each cluster
-	btmrcaStatistics.clusters	<- beast.get.tmrcaStatistic(bxml, btaxonsets.clusters, bxml.treeModel.id, includeStem="false") 		
-	
-	#	modify from template
-	bxml.beast					<- getNodeSet(bxml, "//beast")[[1]]
-	#	add 'btaxonsets.clusters' after last taxa
-	bxml.idx					<- which(xmlSApply(bxml.beast, xmlName)=="taxa")		
-	addChildren(bxml.beast, btaxonsets.clusters, at=bxml.idx[length(bxml.idx)] )
-	if(verbose) cat(paste("\nadded taxon sets comprising each cluster, n=",length(btaxonsets.clusters)))
-	#	add 'btmrcaStatistics.clusters' after last treeModel
-	bxml.idx					<- which(xmlSApply(bxml.beast, xmlName)=="treeModel")
-	addChildren(bxml.beast, btmrcaStatistics.clusters, at=bxml.idx[length(bxml.idx)] )
-	if(verbose) cat(paste("\nadded tmrcaStatistics for mrca of each cluster, n=",length(btmrcaStatistics.clusters)))
-	#add tmrcaStatistics to log 
-	bxml.fileLog				<- getNodeSet(bxml, "//log[@id='fileLog']")
-	tmrcaStatistics.id			<- sapply(btmrcaStatistics.clusters, function(x)	xmlGetAttr(x,"id")	)
-	tmp							<- lapply(tmrcaStatistics.id, function(x)	newXMLNode("tmrcaStatistic", attrs= list(idref=x), parent=bxml.fileLog, doc=bxml, addFinalizer=T )	)
-	if(verbose) cat(paste("\nadded tmrcaStatistics to fileLog"))
-	#
-	#	get monophylyStatistic and add after last 'tmrcaStatistic'
-	#	populate booleanLikelihood with monophylyStatistic constraints
-	#
-	if(xml.monophyly4clusters)
-	{
-		bmStatistics.clusters	<- beast.get.monophylyStatistic(bxml, btaxonsets.clusters, bxml.treeModel.id)
-		bxml.idx				<- which(xmlSApply(bxml.beast, xmlName)=="tmrcaStatistic")
-		addChildren(bxml.beast, bmStatistics.clusters, at=bxml.idx[length(bxml.idx)] )
-		if(verbose) cat(paste("\nadded monophylyStatistics for mrca of each cluster, n=",length(bmStatistics.clusters)))
-		beast.add.monophylylkl(bxml, bmStatistics.clusters)		
-		if(verbose) cat(paste("\nadded monophylyStatistics to booleanLikelihood, n=",length(bmStatistics.clusters)))
-	}
-	
-	bxml
-}
-
-######################################################################################
-#	get a list of monopylyStatistics. assumes each taxonset in 'btaxonsets' is monophyletic
-#' @export
-beast.get.monophylyStatistic<- function(bxml, btaxonsets, treeModel.id) 
+beast.add.monophylyStatistic.for.taxonsets<- function(bxml, treeModel.id, taxonset.prefix='c') 
 {		
-	btaxonset.id	<- sapply(btaxonsets, function(x)	xmlGetAttr(x,"id")	)
-	ans				<- lapply(btaxonset.id, function(x)
+	btaxonset.id	<- xpathSApply(bxml, paste("//taxa[starts-with(@id,'",taxonset.prefix,"')]", sep=''), xmlGetAttr, "id")
+	if(length(btaxonset.id)==0)
+		stop(paste('Cannot find taxonsets with prefix that identifies cluster taxonsets, =',taxonset.prefix))
+	#	create monophyly statistics
+	tmp				<- lapply(btaxonset.id, function(x)
 			{
-				monophylyStatistic	<- newXMLNode("monophylyStatistic", attrs= list(id=paste("monophyly(",x,")",sep='')), doc=bxml, addFinalizer=T )
+				monophylyStatistic	<- newXMLNode("monophylyStatistic", attrs= list(id=paste("monophyly_",x,sep='')), doc=bxml, addFinalizer=T )
 				mrca			<- newXMLNode("mrca", parent=monophylyStatistic, doc=bxml, addFinalizer=T)
-				newXMLNode("taxa", attrs= list(idref=x), parent=mrca, doc=bxml, addFinalizer=T )
-				newXMLNode("treeModel", attrs= list(idref=treeModel.id), parent=monophylyStatistic, doc=bxml, addFinalizer=T )
+				invisible(newXMLNode("taxa", attrs= list(idref=x), parent=mrca, doc=bxml, addFinalizer=T ))
+				invisible(newXMLNode("treeModel", attrs= list(idref=treeModel.id), parent=monophylyStatistic, doc=bxml, addFinalizer=T ))
 				monophylyStatistic					
 			})
-	ans
-}	
-######################################################################################
-#	add a list of monopylyStatistics to the BEAST prior. assumes all monophylyStatistics are referenced in the list 'monophylyStatistics'
-#' @export
-beast.add.monophylylkl<- function(bxml, monophylyStatistics)
-{
+	# 	link monophyly statistics
+	bxml.beast		<- getNodeSet(bxml, "//beast")[[1]]
+	bxml.idx		<- which(xmlSApply(bxml.beast, xmlName)=="tmrcaStatistic")
+	if(length(bxml.idx)==0)
+		stop('Cannot find tmrcaStatistic.')
+	invisible(addChildren(bxml.beast, tmp, at=bxml.idx[length(bxml.idx)] ))
+	if(verbose) cat(paste("\nadded monophylyStatistics for mrca of each cluster, n=",length(tmp)))
+	# 	add monophyly statistics to prior
 	bxml.prior				<- getNodeSet(bxml, "//*[@id='prior']")
-	if(length(bxml.prior)!=1)	stop("unexpected length of bxml.prior")
+	if(length(bxml.prior)>1)	
+		stop("Found more than one prior")
+	if(length(bxml.prior)==0)	
+		stop("Cannot find prior")	
 	bxml.prior				<- bxml.prior[[1]]
-	#see if there is a booleanLikelihood, and if yes use it, otherwise add a new XML node
+	#	see if there is a booleanLikelihood, and if yes use it, otherwise add a new XML node
 	bxml.bool.lkl			<- getNodeSet(bxml.prior,"//booleanLikelihood")
-	if(length(bxml.bool.lkl)>1)	stop("unexpected length of bxml.bool.lkl")
+	if(length(bxml.bool.lkl)>1)	
+		stop("Found more than one booleanLikelihood")
+	if(length(bxml.bool.lkl)==1)
+		bxml.bool.lkl		<- bxml.bool.lkl[[1]]
 	if(length(bxml.bool.lkl)<1)
 		bxml.bool.lkl		<- newXMLNode("booleanLikelihood", parent=bxml.prior, doc=bxml, addFinalizer=T )
-	else
-		bxml.bool.lkl		<- bxml.bool.lkl[[1]]
-	
-	monophylyStatistics.id	<- sapply(monophylyStatistics, function(x)	xmlGetAttr(x,"id")	)
-	dummy					<- lapply(monophylyStatistics.id, function(x)
+	tmp						<- xpathSApply(bxml, paste("//monophylyStatistic[starts-with(@id,'","monophyly_",taxonset.prefix,"')]", sep=''), xmlGetAttr, "id")	
+	invisible(lapply(tmp, function(x)
 			{
-				dummy		<- newXMLNode("monophylyStatistic", attrs= list(idref=x), parent=bxml.bool.lkl, doc=bxml, addFinalizer=T )
-			})
-	bxml
-}
+				newXMLNode("monophylyStatistic", attrs= list(idref=x), parent=bxml.bool.lkl, doc=bxml, addFinalizer=T )
+			}))
+	if(verbose) cat(paste("\nadded monophylyStatistics to booleanLikelihood, n=",length(tmp)))
+	invisible(bxml) 
+}	
 ######################################################################################
 #	For each taxonset, get a list of tmrcaStatistics. Assumes all tmrcaStatistics share a treeModel.id and the same includeStem attribute
+#' @title	Add tmrcaStatistic for phylogenetic clusters to XML file 
 #' @export
-beast.get.tmrcaStatistic<- function(bxml, btaxonsets, treeModel.id, includeStem="false") 
-{		
-	btaxonset.id	<- sapply(btaxonsets, function(x)	xmlGetAttr(x,"id")	)
+beast.add.tmrcaStatistic.for.taxonsets<- function(bxml,  treeModel.id='treeModel', taxonset.prefix='c', includeStem="false", verbose=1) 
+{			
+	btaxonset.id	<- xpathSApply(bxml, paste("//taxa[starts-with(@id,'",taxonset.prefix,"')]", sep=''), xmlGetAttr, "id")
+	if(length(btaxonset.id)==0)
+		stop(paste('Cannot find taxonsets with prefix that identifies cluster taxonsets, =',taxonset.prefix))
 	prefix.id		<- ifelse(includeStem=="false","tmrca","tstem")
-	ans				<- lapply(btaxonset.id, function(x)
+	#	create trmca statistics
+	tmp				<- lapply(btaxonset.id, function(x)
 			{
-				tmrcaStatistic	<- newXMLNode("tmrcaStatistic", attrs= list(id=paste(prefix.id,"(",x,")",sep=''), includeStem=includeStem), doc=bxml, addFinalizer=T )
+				tmrcaStatistic	<- newXMLNode("tmrcaStatistic", attrs= list(id=paste(prefix.id,"_",x,sep=''), includeStem=includeStem), doc=bxml, addFinalizer=T )
 				mrca			<- newXMLNode("mrca", parent=tmrcaStatistic, doc=bxml, addFinalizer=T)
-				newXMLNode("taxa", attrs= list(idref=x), parent=mrca, doc=bxml, addFinalizer=T )
-				newXMLNode("treeModel", attrs= list(idref=treeModel.id), parent=tmrcaStatistic, doc=bxml, addFinalizer=T )
+				invisible(newXMLNode("taxa", attrs= list(idref=x), parent=mrca, doc=bxml, addFinalizer=T ))
+				invisible(newXMLNode("treeModel", attrs= list(idref=treeModel.id), parent=tmrcaStatistic, doc=bxml, addFinalizer=T ))
 				tmrcaStatistic					
-			})
-	ans
+			})	
+	# 	link trmca statistics to XML	
+	bxml.beast					<- getNodeSet(bxml, "//beast")[[1]]
+	bxml.idx					<- which(xmlSApply(bxml.beast, xmlName)=="treeModel")
+	if(length(bxml.idx)==0)
+		stop('Cannot find treeModel')
+	invisible(addChildren(bxml.beast, tmp, at=bxml.idx[length(bxml.idx)] ))
+	if(verbose) cat(paste("\nadded tmrcaStatistics for each cluster, n=",length(tmp)))
+	#	add tmrcaStatistics to log 
+	bxml.fileLog				<- getNodeSet(bxml, "//log[contains(@id,'fileLog')]")
+	if(length(bxml.fileLog)>1)
+		stop('Found more than one fileLog')
+	if(length(bxml.fileLog)==0)
+		warning("Could not find fileLog whose id contains 'fileLog'. Not adding trmcaStatistics to fileLog")
+	if(length(bxml.fileLog)==1)
+	{
+		tmrcaStatistics.id		<- xpathSApply(bxml, paste("//tmrcaStatistic[starts-with(@id,'",prefix.id,"_",taxonset.prefix,"')]", sep=''), xmlGetAttr, "id")
+		stopifnot(length(tmrcaStatistics.id)>0)
+		invisible(lapply(tmrcaStatistics.id, function(x)	newXMLNode("tmrcaStatistic", attrs= list(idref=x), parent=bxml.fileLog, doc=bxml, addFinalizer=T )	))
+		if(verbose) cat(paste("\nadded tmrcaStatistics to fileLog, n=", length(tmrcaStatistics.id)))
+	}
+	invisible(bxml) 
 }	
 ######################################################################################
 #' @export
@@ -591,61 +618,168 @@ beast.get.xml<- function(	btemplate, seq.PROT.RT, df, file, ph=NULL, xml.monophy
 	#
 	bxml
 }	
-######################################################################################
-#	adjust mcmc BEAST XML element
+###################################################################################### 
+#' @title Copy XML elements from template
 #' @export
-beast.adjust.mcmc<- function(bxml, beast.mcmc.chainLength=NA, beast.mcmc.logEvery=NA, verbose=1)
+beast.add.from.template<- function(bxml, btemplate, select.after.elt=NA, select.to.elt=NA, verbose=1)
 {
-	if(!is.na(beast.mcmc.chainLength))
+	bxml.beast			<- getNodeSet(bxml, "//beast")[[1]]
+	bt.beast			<- getNodeSet(btemplate, "//beast")[[1]]
+	bt.beast.elt.nms	<- xmlSApply(bt.beast, xmlName)
+	select.after		<- 0
+	if(!is.na(select.after.elt))
 	{
-		tmp			<- getNodeSet(bxml, "//*[@id='mcmc']")
-		if(length(tmp)!=1)	stop("unexpected number of *[@id='mcmc']")
-		tmp			<- tmp[[1]]
-		if(verbose)	cat(paste("\nSet MCMC chainLength to",beast.mcmc.chainLength))
-		xmlAttrs(tmp)["chainLength"]	<-	sprintf("%d",beast.mcmc.chainLength)		
+		stopifnot( select.after.elt%in%bt.beast.elt.nms )
+		select.after	<- which(grepl(select.after.elt,bt.beast.elt.nms))			
+	}	
+	select.up.to		<- length(bt.beast.elt.nms)
+	if(!is.na(select.to.elt))
+	{
+		stopifnot( select.to.elt%in%bt.beast.elt.nms )
+		select.up.to	<- which(grepl(select.to.elt,bt.beast.elt.nms))			
+	}			
+	stopifnot(select.after<select.up.to)
+	tmp					<- which( !grepl('comment', bt.beast.elt.nms[seq.int(select.after+1,select.up.to)] ) )
+	#	see if starting tree has been added already	
+	bxml.nwck.id		<- xpathSApply(bxml.beast, "//newick[count(@id)]", xmlGetAttr, "id")
+	#	if yes, make sure same id is not added through template 
+	if(length(bxml.nwck.id))
+	{
+		tmp2			<- sapply(tmp, function(i) length(xpathSApply(bt.beast[[i]], paste("descendant-or-self::*[@id='",bxml.nwck.id,"']",sep=''), xmlGetAttr, "id" ))==0 )
+		tmp				<- tmp[tmp2]		
 	}
-	if(!is.na(beast.mcmc.logEvery))
+	if(verbose)
+		cat(paste('\nCopy elements from template=', paste(bt.beast.elt.nms[tmp], collapse=', ', sep='')))
+	invisible(sapply(tmp, function(i)
+					{
+						if( class(bt.beast[[i]])[1]=="XMLInternalCommentNode" )
+							dummy<- newXMLCommentNode(text=xmlValue(bt.beast[[i]]), parent=bxml.beast, doc=bxml, addFinalizer=T)
+						else
+							dummy<- addChildren( bxml.beast, xmlClone( bt.beast[[i]], addFinalizer=T, doc=bxml ) )
+					}))
+	invisible(bxml)			
+}
+######################################################################################
+#' @title	Adjust dimension parameter of gmrfSkyrideLikelihood
+#' @export
+beast.adjust.gmrfSkyrideLikelihood<- function(bxml, df, verbose=1)
+{
+	bxml.tmp	<- getNodeSet(bxml, "//gmrfSkyrideLikelihood[count(@id)]")
+	if(length(bxml.tmp)>1)
+		stop("unexpected number of gmrfSkyrideLikelihood")
+	if(length(bxml.tmp)==1)
 	{
-		bxml.logs	<- getNodeSet(bxml, "//*[@logEvery]")		
-		for(i in seq_along(bxml.logs))
+		tmp			<- getNodeSet(bxml.tmp[[1]], "//*[count(@dimension)]")
+		for(x in tmp)
 		{
-			if(verbose)	cat(paste("\nSet logEvery to",beast.mcmc.logEvery))
-			xmlAttrs(bxml.logs[[i]])["logEvery"]	<- sprintf("%d",beast.mcmc.logEvery)
+			if(verbose)
+				cat(paste('\nAdjusting dimension of ',xmlName(x),'with id',xmlGetAttr(x,'id'),'to',nrow(df)-1))
+			xmlAttrs(x)["dimension"]	<-	nrow(df)-1  
+		}
+	}		
+	invisible(bxml)
+}
+######################################################################################
+#' @title	Adjust MCMC element
+#' @export
+beast.adjust.mcmc<- function(bxml, mcmc.chainLength=NA, mcmc.logEvery=NA, mcmc.outfile=NA, verbose=1)
+{
+	bxml.tmp		<- getNodeSet(bxml, "//mcmc[count(@id)]")
+	if(length(bxml.tmp)>1)
+		stop("unexpected number of mcmc")	
+	if(!is.na(mcmc.chainLength))
+	{
+		if(verbose)	
+			cat(paste("\nAdjust MCMC chainLength to",mcmc.chainLength))
+		xmlAttrs(bxml.tmp[[1]])["chainLength"]	<-	sprintf("%d",mcmc.chainLength)		
+	}
+	if(!is.na(mcmc.logEvery))
+	{
+		tmp			<- getNodeSet(bxml.tmp[[1]], "//*[@logEvery]")		
+		for(x in tmp)
+		{
+			if(verbose)	
+				cat(paste("\nAdjust logEvery of",xmlName(x),'with id',xmlGetAttr(x,'id'),"to", mcmc.logEvery))
+			xmlAttrs(x)["logEvery"]	<- sprintf("%d", mcmc.logEvery)
 		}			
 	}
-	bxml
+	if(!is.na(mcmc.outfile))
+	{
+		if(regexpr('.xml',mcmc.outfile)<0)
+			stop('Expected file name ending in .xml')
+		#
+		xmlAttrs(bxml.tmp[[1]])["operatorAnalysis"]	<- gsub('.xml','.ops',mcmc.outfile)
+		#
+		tmp		<- getNodeSet(bxml.tmp[[1]], "//log[contains(@id,'fileLog')]")
+		if(length(tmp)>1)
+			stop('Found more than one fileLog')
+		x		<- tmp[[1]]
+		xmlAttrs(x)["fileName"]	<- gsub('.xml','.log',mcmc.outfile)
+		if(verbose)	
+			cat(paste("\nAdjust fileName of",xmlName(x),'with id',xmlGetAttr(x,'id'),"to", xmlAttrs(x)["fileName"]))
+		#
+		tmp		<- getNodeSet(bxml.tmp[[1]], "//logTree[count(@branchLengths)=0]")
+		if(length(tmp)>1)
+			stop('Found more than one subst logTree')
+		x		<- tmp[[1]]
+		xmlAttrs(x)["fileName"]	<- gsub('.xml','.tree',mcmc.outfile)
+		if(verbose)	
+			cat(paste("\nAdjust fileName of",xmlName(x),'with id',xmlGetAttr(x,'id'),"to", xmlAttrs(x)["fileName"]))
+		#
+		tmp		<- getNodeSet(bxml.tmp[[1]], "//logTree[@branchLengths='substitutions']")
+		if(length(tmp)>1)
+			stop('Found more than one subst logTree')
+		x		<- tmp[[1]]
+		xmlAttrs(x)["fileName"]	<- gsub('.xml','_subst.tree',mcmc.outfile)
+		if(verbose)	
+			cat(paste("\nAdjust fileName of",xmlName(x),'with id',xmlGetAttr(x,'id'),"to", xmlAttrs(x)["fileName"]))		
+	}
+	invisible(bxml)
 }
 ######################################################################################
 #	if rootheight prior uniform, sets lower bound to earliest sampling time in data set
+#' @title Ajust lower bound of uniform prior on root height
 #' @export
-beast.adjust.rootheightprior<- function(bxml, df, verbose=1)
+beast.adjust.prior.rootheight<- function(bxml, df, rootHeight.idref='treeModel.rootHeight', verbose=1)
 {
-	bxml.prior	<- getNodeSet(bxml, "//uniformPrior[descendant::parameter[@idref='treeModel.rootHeight']]")
-	if(length(bxml.prior)>1)	stop("unexpected length of //uniformPrior[descendant::parameter[@idref='treeModel.rootHeight']]")
+	bxml.prior	<- getNodeSet(bxml, paste("//uniformPrior[descendant::parameter[@idref=",rootHeight.idref,"]]",sep=''))
+	if(length(bxml.prior)>1)	
+		stop('Found more than one rootHeight with same id.')
 	if(length(bxml.prior)==1)
 	{
-		tmp								<- df[,range(AnyPos_T1)]
-		if(verbose)	cat(paste("\nfound uniformPrior for treeModel.rootHeight. Range of tip dates is",tmp[1],tmp[2]))
-		tmp								<- difftime(tmp[2],tmp[1], units="days")	
-		bxml.prior						<- bxml.prior[[1]]
-		if(verbose)	cat(paste("\nset lower bound of uniformPrior for treeModel.rootHeight to", floor( tmp/365 )))
-		xmlAttrs(bxml.prior)["lower"]	<- floor( tmp/365 )	
+		tmp									<- df[, range(SAMPLINGTIME)]
+		tmp									<- floor(diff(tmp))
+		xmlAttrs(bxml.prior[[1]])["lower"]	<- tmp		
+		if(verbose)	
+			cat(paste("\nset lower bound of uniformPrior for rootHeight to", tmp))			
 	}
-	bxml
+	invisible(bxml)
 }
 ######################################################################################
 #	For each cluster, create a taxonset. Assumes df has BEASTlabel and cluster
 #' @export
-beast.get.taxonsets4clusters	<- function(bxml, df)
+beast.add.taxonsets.for.clusters	<- function(bxml, df, taxonset.prefix='c')
 {	
-	ans	<- lapply( unique( df[,cluster] ), function(clu)
+	stopifnot(c('CLU_ID','TAXON_NAME')%in%names(df))
+	#	create taxonsets
+	tmp	<- lapply( unique( df[,CLU_ID] ), function(clu)
 			{							
-				taxonset	<- newXMLNode("taxa", attrs= list(id=paste("c",clu,sep='')), doc=bxml, addFinalizer=T )
-				tmp<- df[cluster==clu,][,BEASTlabel]
-				tmp<- lapply(tmp, function(x)		newXMLNode("taxon", attrs= list(idref=x), parent=taxonset, doc=bxml, addFinalizer=T )	)
+				taxonset	<- newXMLNode("taxa", attrs= list(id=paste(taxonset.prefix,clu,sep='')), doc=bxml, addFinalizer=T )				
+				invisible( lapply(subset(df, CLU_ID==clu)[, TAXON_NAME], function(x)
+								{
+									newXMLNode("taxon", attrs= list(idref=x), parent=taxonset, doc=bxml, addFinalizer=T )	
+								})	)
 				taxonset
 			})
-	ans		
+	tmp	
+	# 	link taxonsets to XML	
+	bxml.beast					<- getNodeSet(bxml, "//beast")[[1]]
+	bxml.idx					<- which(xmlSApply(bxml.beast, xmlName)=="taxa")
+	if(length(bxml.idx)==0)
+		stop('Cannot find taxa')
+	invisible(addChildren(bxml.beast, tmp, at=bxml.idx[length(bxml.idx)] ))
+	if(verbose) cat(paste("\nadded taxon sets for each cluster, n=",length(tmp)))
+	invisible(bxml)
 }
 ######################################################################################
 #	For each tip, create a taxonset. Assumes df has BEASTlabel
@@ -1201,37 +1335,69 @@ beast.add.patterns<- function(bxml, beast.patterns.id, alignment.id, beast.patte
 	invisible(bxml) 
 }
 ######################################################################################
+#' @title Generate starting tree   
+#' @description Generate starting tree with tips that correspond to the taxa in \code{df}. See Examples.
+#' @return Starting tree in newick format
+#' @import data.table adephylo 
+#' @example example/ex.beast.from.template.R
+#' @seealso \code{\link{beastxml.from.template}}
+#' @export 
+beast.get.startingtree<- function(ph, df, starttree.rootHeight=NA, origin.value=NA, verbose=1)
+{
+	stopifnot(c('TAXON_ID','TAXON_NAME')%in%names(df))
+	tmp		<- c( 	length(intersect( ph$tip.label, df[, TAXON_ID] )),
+					length(intersect( ph$tip.label, df[, TAXON_NAME] ))	)	#tree must contain all taxa in df
+	stopifnot(any(tmp))	#	tip labels must either match ID or NAME
+	if(tmp[1])
+	{
+		if(verbose)
+			cat('Found tip labels that match TAXON_ID\nset tip labels to TAXON_NAME')
+		stopifnot( tmp[1]==nrow(df) )		#tree must contain all taxa in df
+		tmp2				<- setdiff( ph$tip.label, df[, TAXON_ID] )
+		tmp2				<- match( tmp2, ph$tip.label)
+		ph.start			<- drop.tip(ph, tmp2)		
+		ph.start$node.label	<- NULL
+		setkey(df, TAXON_ID)
+		ph.start$tip.label	<- df[ph.start$tip.label,][, TAXON_NAME]		
+	}
+	if(tmp[2])
+	{
+		if(verbose)
+			cat('Found tip labels that match TAXON_NAME\nkeep tip labels as is')
+		if(tmp[2]!=nrow(df))
+			stop('Found taxa in df that are not in tree'  )		#tree must contain all taxa in df
+		tmp2				<- setdiff( ph$tip.label, df[, TAXON_NAME] )
+		tmp2				<- match( tmp2, ph$tip.label)
+		ph.start			<- drop.tip(ph, tmp2)		
+		ph.start$node.label	<- NULL
+	}
+	#	adjust rootHeight to 'beast.rootHeight'	
+	if(!is.na(starttree.rootHeight))
+	{
+		if(verbose) cat(paste("\ncreate startingTree with root height=",starttree.rootHeight))
+		ph.start$edge.length<- ph.start$edge.length	*	starttree.rootHeight / max(distRoot(ph.start))	
+	}
+	if(!is.na(origin.value) & starttree.rootHeight>=origin.value)	
+		stop('Detected invalid rootHeight. Must be smaller than origin.value.')
+	if(verbose) 
+	{
+		cat(paste("\nselected tips for startingTree, n=",Ntip(ph.start)))
+		cat(paste("\nroot height=",max(distRoot(ph.start))))
+	}
+	write.tree( ph.start )		
+}
+######################################################################################
 # 	extract starting tree from 'ph' by tips in 'df'. Only keeps tree topology and resets branch lengths so that the maximum root distance is 'beast.rootHeight'
 #	beast.rootHeight= 35; beast.usingDates= "false"; beast.newickid= "startingTree"
+#' @title Add starting tree to XML
 #' @export
-beast.add.startingtree<- function(bxml, ph.start, df=NULL, beast.rootHeight= NA, beast.usingDates="true", beast.newickid= "startingTree", beast.brlunits="years", verbose=1)
+beast.add.startingtree<- function(bxml, start.tree.newick, beast.newickid= "startingTree", beast.usingDates="true", beast.brlunits="years", verbose=1)
 {
-	require(adephylo)
-	if(verbose) cat(paste("\ncreate startingTree"))
-	if(!is.null(df))
-	{
-		tmp					<- setdiff( ph.start$tip.label, df[,FASTASampleCode] )
-		tmp					<- match( tmp, ph.start$tip.label)
-		ph.start			<- drop.tip(ph.start, tmp)		
-		ph.start$node.label	<- NULL
-		setkey(df, FASTASampleCode)
-		ph.start$tip.label	<- df[ph.start$tip.label,][,BEASTlabel]
-		if(verbose) cat(paste("\nselected tips for startingTree, n=",Ntip(ph.start)))		
-	}
-	if(is.null(df) & verbose)
-		cat(paste("\nuse tips for startingTree, n=",Ntip(ph.start)))
-	#	adjust rootHeight to 'beast.rootHeight'
-	if(!is.na(beast.rootHeight))
-	{
-		if(verbose) cat(paste("\nSet root height of starting tree=",beast.rootHeight))
-		tmp					<- beast.rootHeight / max(distRoot(ph.start))
-		ph.start$edge.length<- ph.start$edge.length*tmp		
-	}
-	#	write ph.start as newick tree to bxml
-	tmp					<- write.tree( ph.start )	
 	bxml.beast			<- getNodeSet(bxml, "//beast")[[1]]
-	dummy				<- newXMLCommentNode(text="The user-specified starting tree in a newick tree format", parent=bxml.beast, doc=bxml, addFinalizer=T)
+	if( length(getNodeSet(bxml, paste("//newick[@id='",beast.newickid,"']", sep='')))>0 )
+		stop(paste('\nAlready exists: newick with id',beast.newickid )) 
+	invisible(newXMLCommentNode(text="The user-specified starting tree in a newick tree format", parent=bxml.beast, doc=bxml, addFinalizer=T))
 	bxml.startingTree	<- newXMLNode("newick", attrs= list(id=beast.newickid, usingDates=beast.usingDates, units=beast.brlunits), parent= bxml.beast, doc=bxml, addFinalizer=T)
-	dummy				<- newXMLTextNode(text=tmp, parent=bxml.startingTree, doc=bxml, addFinalizer=T) 
+	invisible(newXMLTextNode(text=start.tree.newick, parent=bxml.startingTree, doc=bxml, addFinalizer=T)) 
 	invisible(bxml)
 }
