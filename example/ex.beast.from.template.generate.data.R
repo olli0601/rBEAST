@@ -1,5 +1,4 @@
 require(rBEAST)
-
 infile.seq				<- '~/git/rBEAST/inst/extra/sim_150414a_seq.R'
 outfile.seq				<- '~/git/rBEAST/inst/extra/sim_150416_seq.R'
 outfile.tree			<- '~/git/rBEAST/inst/extra/sim_150416_njtree.R'

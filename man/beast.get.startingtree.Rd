@@ -14,11 +14,10 @@ Generate starting tree with tips that correspond to the taxa in \code{df}. See E
 }
 \examples{
 require(rBEAST)
-
-infile.seq				<- '~/git/rBEAST/inst/extra/sim_150416_seq.R'
-infile.tree				<- '~/git/rBEAST/inst/extra/sim_150416_njtree.R'
-infile.xml.template		<- '~/git/rBEAST/inst/xml_templates/BEAST_template_um192rhU2080.xml'
-outdir.xml				<- '~/git/rBEAST/inst/extra'
+infile.seq				<- system.file(package="rBEAST", 'extra','sim_150416_seq.R')
+infile.tree				<- system.file(package="rBEAST", 'extra','sim_150416_njtree.R')
+infile.xml.template		<- system.file(package="rBEAST", 'xml_templates','BEAST_template_um192rhU2080.xml')
+outdir.xml				<- getwd()
 outfile.xml				<- 'sim_150416_um192rhU2080.xml'
 
 #	load data

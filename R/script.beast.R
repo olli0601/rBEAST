@@ -17,13 +17,13 @@ beastxml.multilocus.codon.gtr<- function( file.name, seq.select, phd, verbose=1 
 	beast.add.taxa(bxml, seq.select, beast.date.direction= "forwards", beast.date.units= "years", verbose=1)
 	#	add alignment for every transmission cluster
 	for(clu in seq.select[, unique(CLU_ID)])
-	{
-		beast.add.alignment(bxml, seq.select, df.seqfield='SEQ',  beast.alignment.id=paste("alignment_CLU",clu,sep=''), beast.alignment.dataType= "nucleotide", verbose=1)				
+	{		
+		beast.add.alignment(bxml, subset(seq.select, CLU_ID==clu), df.seqfield='SEQ',  beast.alignment.id=paste("alignment_CLU",clu,sep=''), beast.alignment.dataType= "nucleotide", verbose=1)				
 	}
 	#	add starting tree for every transmission cluster			
 	for(clu in names(phd))
 	{
-		beast.add.startingtree(bxml, phd[[clu]], beast.rootHeight= NA, beast.usingDates="true", beast.newickid=paste("startingTree_CLU",clu,sep=''), beast.brlunits="years", verbose=1)	
+		beast.add.startingtree(bxml, phd[[clu]], beast.usingDates="true", beast.newickid=paste("startingTree_CLU",clu,sep=''), beast.brlunits="years", verbose=1)	
 	}
 	#	add CODON patterns for every alignment
 	for(clu in seq.select[, unique(CLU_ID)])
@@ -190,12 +190,12 @@ beastxml.multilocus.hky<- function( file.name, seq.select, phd, verbose=1 )
 	#	add alignment for every transmission cluster
 	for(clu in seq.select[, unique(CLU_ID)])
 	{
-		beast.add.alignment(bxml, seq.select, df.seqfield='SEQ', beast.alignment.id=paste("alignment_CLU",clu,sep=''), beast.alignment.dataType= "nucleotide", verbose=1)				
+		beast.add.alignment(bxml, subset(seq.select, CLU_ID==clu), df.seqfield='SEQ', beast.alignment.id=paste("alignment_CLU",clu,sep=''), beast.alignment.dataType= "nucleotide", verbose=1)				
 	}
 	#	add starting tree for every transmission cluster			
 	for(clu in names(phd))
 	{
-		beast.add.startingtree(bxml, phd[[clu]], beast.rootHeight= NA, beast.usingDates="true", beast.newickid=paste("startingTree_CLU",clu,sep=''), beast.brlunits="years", verbose=1)	
+		beast.add.startingtree(bxml, phd[[clu]], beast.usingDates="true", beast.newickid=paste("startingTree_CLU",clu,sep=''), beast.brlunits="years", verbose=1)	
 	}
 	#	add CODON patterns for every alignment
 	for(clu in seq.select[, unique(CLU_ID)])

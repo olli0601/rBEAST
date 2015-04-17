@@ -40,11 +40,10 @@ df.clupool			<- beast.pool.clusters(df, how='by.samplingtime.alwaysincludebefore
 #	pool.ntip.min: minimum number of sequences required per sampling period; NA if none required
 df.clupool			<- beast.pool.clusters(df, how='by.required.seq.per.samplingperiod', pool.ntip.guide=150, pool.ntip.min=c(50, 70, 70, NA, NA), pool.breaks=c(0, 1.596, 3.596, 5.596, 9.596, Inf), verbose=1)
 require(rBEAST)
-
-infile.seq				<- '~/git/rBEAST/inst/extra/sim_150416_seq.R'
-infile.tree				<- '~/git/rBEAST/inst/extra/sim_150416_njtree.R'
-infile.xml.template		<- '~/git/rBEAST/inst/xml_templates/BEAST_template_um192rhU2080.xml'
-outdir.xml				<- '~/git/rBEAST/inst/extra'
+infile.seq				<- system.file(package="rBEAST", 'extra','sim_150416_seq.R')
+infile.tree				<- system.file(package="rBEAST", 'extra','sim_150416_njtree.R')
+infile.xml.template		<- system.file(package="rBEAST", 'xml_templates','BEAST_template_um192rhU2080.xml')
+outdir.xml				<- getwd()
 outfile.xml				<- 'sim_150416_um192rhU2080.xml'
 
 #	load data

@@ -4,8 +4,9 @@ tree.label.idx.idpop	<- 1
 tree.label.idx.ctime	<- 4 	
 #select					<- 'grid-cseq3'		#generates large file to illustrate rBEAST functionality
 select					<- 'grid-mseq400'	#generates relatively small file for testing
-infile.seq				<- '~/git/rBEAST/inst/extra/sim_150414a_seq.R'
-infile.starttrees		<- '~/git/rBEAST/inst/extra/sim_150414a_starttrees.newick'
+infile.seq				<- system.file(package="rBEAST", 'extra','sim_150414a_seq.R')
+infile.starttrees		<- system.file(package="rBEAST", 'extra','sim_150414a_starttrees.newick')
+outdir					<- getwd()
 #
 #	load data
 #
@@ -13,13 +14,13 @@ file			<- infile.seq
 cat(paste('\nLoading file', file))
 load(file)		
 #	expect data.table "df.seq" with columns
+#	"TAXON_ID"		taxon ID
 #	"TAXON_NAME" 	taxon name
+#	"SAMPLINGTIME"	taxon sampling time
 #	"GAG"   		gag sequence as character string
 #	"POL"   		pol sequence as character string
 #	"ENV"   		env sequence as character string
 #	"CLU_ID" 		phylogenetic cluster ID of sequence, NA if not in any cluster
-#	"TAXON_ID"		taxon ID
-set( df.seq, NULL, 'CLU_ID', df.seq[, as.integer(CLU_ID)] )
 
 #	'size' option: eg how many sequences to select
 thresh.NSEQ		<- as.numeric(substring(regmatches(select, regexpr('seq[0-9]+',select)), 4))
@@ -80,7 +81,7 @@ names(phd)			<- tmp2[, CLU_ID]
 \dontrun{
 phd.plot			<- eval(parse(text=paste('phd[[',seq_along(phd),']]', sep='',collapse='+')))			
 phd.plot			<- ladderize(phd.plot)		
-pdf(file=gsub('.newick',paste('_',select,'.pdf',sep=''),infile.starttrees), w=10, h=Ntip(phd.plot)*0.1)
+pdf(file=paste(outdir,gsub('.newick',paste('_',select,'.pdf',sep=''),basename(infile.starttrees)),sep='/'), w=10, h=Ntip(phd.plot)*0.1)
 plot(phd.plot, show.tip=TRUE, cex=0.5)
 dev.off()	
 }
@@ -89,7 +90,7 @@ dev.off()
 #			
 seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "POL" ))
 setnames(seq.select.pol, 'POL', 'SEQ')
-file.name		<- gsub('_seq.R',paste('_HKY_fixedtree_',select,'.xml',sep=''),infile.seq)
+file.name		<- paste(outdir, gsub('_seq.R',paste('_HKY_fixedtree_',select,'.xml',sep=''),basename(infile.seq)), sep='/')
 bxml			<- beastxml.multilocus.codon.gtr( file.name, seq.select.pol, phd, verbose=1 )
 #	write to file
 \dontrun{
