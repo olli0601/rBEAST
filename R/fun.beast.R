@@ -39,6 +39,62 @@ beast.set.SEQ	<- function(df, seq, verbose=1)
 }
 ######################################################################################
 #	pool clusters into sets containing roughly 'pool.ntip' sequences
+#' @title Pick sequence data set by type of phylogenetic cluster  
+#' @export
+beast.choose.seq.by.clusters<- function(df.seq, select, verbose=1)
+{
+	thresh.NSEQ		<- as.numeric(substring(regmatches(select, regexpr('seq[0-9]+',select)), 4))
+	stopifnot(!is.na(thresh.NSEQ))
+	#	'how to select' options
+	#	pick phylogenetic clusters randomly
+	if(grepl('clrndseq',select))
+	{		
+		seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+		setkey(seq.select, CLU_N, CLU_ID)
+		seq.select		<- subset(unique(seq.select), CLU_N>2)
+		seq.select[, DUMMY:= sample(nrow(seq.select), nrow(seq.select))]
+		setkey(seq.select, DUMMY)
+		seq.select[, CLU_CN:= seq.select[, cumsum(CLU_N)]]
+		seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
+		seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )				
+	}
+	#	or pick sequences from largest phylogenetic clusters
+	if(grepl('mseq',select))
+	{	
+		seq.select		<- df.seq[, list(CLU_N=-length(TAXON_NAME)), by='CLU_ID']			
+		setkey(seq.select, CLU_N, CLU_ID)
+		seq.select		<- subset(unique(seq.select), CLU_N< -2)	
+		seq.select[, CLU_CN:= seq.select[, cumsum(-CLU_N)]]
+		seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
+		seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )									
+	}
+	#	or pick sequences from smallest phylogenetic clusters
+	if(grepl('clsmseq',select))
+	{
+		seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+		setkey(seq.select, CLU_N, CLU_ID)
+		seq.select		<- subset(unique(seq.select), CLU_N>2)	
+		seq.select[, CLU_CN:= seq.select[, cumsum(CLU_N)]]
+		seq.select		<- seq.select[seq_len( seq.select[, which(CLU_CN>=thresh.NSEQ)[1]] ), ]			
+		seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )					
+	}
+	#	or pick sequences of all phylogenetic clusters of size >= x
+	if(grepl('cseq',select))
+	{				
+		seq.select		<- df.seq[, list(CLU_N=length(TAXON_NAME)), by='CLU_ID']			
+		setkey(seq.select, CLU_N, CLU_ID)
+		seq.select		<- subset(unique(seq.select), CLU_N>=thresh.NSEQ)	
+		seq.select		<- merge( df.seq, subset(seq.select, select=CLU_ID), by='CLU_ID' )					
+	}
+	if(verbose)
+	{
+		cat(paste('\nFound clusters, n=', seq.select[, length(unique(CLU_ID))])) 
+		cat(paste('\nFound sequences, n=', seq.select[, length(unique(TAXON_ID))]))					
+	}
+	seq.select
+}
+######################################################################################
+#	pool clusters into sets containing roughly 'pool.ntip' sequences
 #' @title Pool phylogenetic clusters for separate BEAST runs  
 #' @description This function returns a list of data tables. Each data table contains the pooled taxa for a single BEAST run. See Examples.
 #' @import XML phytools ape data.table reshape2 ggplot2 
@@ -314,6 +370,19 @@ beast.writeNexus4Beauti<- function( seq.DNAbin.matrix, df, ph=NULL, file=NULL )
 	#	produce nexus text			
 	ans<- seq.write.dna.nexus(seq.DNAbin.matrix, ph=ph.start, file=file)
 	ans
+}
+######################################################################################
+#' @title	Read BEAST log file
+#' @export
+beast.read.log<- function(file, select=c('state','likelihood'), verbose=1)
+{
+	df		<- as.data.table(read.delim(file, comment.char='#'))
+	if(verbose)
+		cat(paste('\nFound columns', paste(names(df), collapse=',')))
+	tmp		<- as.logical(apply(sapply(select, function(x)  as.numeric(grepl(x, names(df)))), 1, sum))
+	if(verbose)
+		cat(paste('\nSelect columns', paste(names(df)[tmp], collapse=',')))		
+	subset(df, select=names(df)[tmp])		
 }
 ######################################################################################
 #	read tip stem samples after burn in from log file and return upper left points of a histogram of the Monte Carlo sample
@@ -1393,11 +1462,14 @@ beast.get.startingtree<- function(ph, df, starttree.rootHeight=NA, origin.value=
 #' @export
 beast.add.startingtree<- function(bxml, start.tree.newick, beast.newickid= "startingTree", beast.usingDates="true", beast.brlunits="years", verbose=1)
 {
-	bxml.beast			<- getNodeSet(bxml, "//beast")[[1]]
+	if( class(start.tree.newick)=='phylo' )
+		start.tree.newick	<- write.tree( start.tree.newick )	
+	stopifnot(class(start.tree.newick)=='character')
+	bxml.beast				<- getNodeSet(bxml, "//beast")[[1]]
 	if( length(getNodeSet(bxml, paste("//newick[@id='",beast.newickid,"']", sep='')))>0 )
 		stop(paste('\nAlready exists: newick with id',beast.newickid )) 
 	invisible(newXMLCommentNode(text="The user-specified starting tree in a newick tree format", parent=bxml.beast, doc=bxml, addFinalizer=T))
-	bxml.startingTree	<- newXMLNode("newick", attrs= list(id=beast.newickid, usingDates=beast.usingDates, units=beast.brlunits), parent= bxml.beast, doc=bxml, addFinalizer=T)
+	bxml.startingTree		<- newXMLNode("newick", attrs= list(id=beast.newickid, usingDates=beast.usingDates, units=beast.brlunits), parent= bxml.beast, doc=bxml, addFinalizer=T)
 	invisible(newXMLTextNode(text=start.tree.newick, parent=bxml.startingTree, doc=bxml, addFinalizer=T)) 
 	invisible(bxml)
 }
