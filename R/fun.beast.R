@@ -965,6 +965,20 @@ beast.add.logTree<- function(bxml, logTree.id, treeModel.id, discretizedBranchRa
 }
 ######################################################################################
 #' @export
+beast.add.upDownOperator<- function(bxml, up.parameter.id, down.parameter.id, scaleFactor=0.75, weight=1)
+{
+	bxml.o			<- getNodeSet(bxml, "//operators")[[1]]
+	tmp				<- newXMLNode("upDownOperator", attrs= list(scaleFactor=as.character(scaleFactor), weight=as.character(weight)), parent=bxml.o, doc=bxml, addFinalizer=T)
+	tmp2			<- newXMLNode("up", parent=tmp, doc=bxml, addFinalizer=T)
+	for(x in up.parameter.id)
+		invisible(newXMLNode("parameter", attrs= list(idref=x), parent=tmp2, doc=bxml, addFinalizer=T))
+	tmp2			<- newXMLNode("down", parent=tmp, doc=bxml, addFinalizer=T)
+	for(x in down.parameter.id)
+		invisible(newXMLNode("parameter", attrs= list(idref=x), parent=tmp2, doc=bxml, addFinalizer=T))	
+	invisible(bxml) 
+}
+######################################################################################
+#' @export
 beast.add.deltaExchangeOperator<- function(bxml, parameter.id, delta=0.75, parameterWeights=c(948, 948, 948), weight=9)
 {
 	bxml.o			<- getNodeSet(bxml, "//operators")[[1]]
@@ -1032,6 +1046,15 @@ beast.add.exponentialPrior<- function(bxml, idref, mean, offset)
 {
 	bxml.beast		<- getNodeSet(bxml, "//prior")[[1]]
 	tmp				<- newXMLNode("exponentialPrior", attrs= list(mean=as.character(mean), offset=as.character(offset)), parent=bxml.beast, doc=bxml, addFinalizer=T)
+	tmp2			<- newXMLNode("parameter", attrs= list(idref=idref), parent=tmp, doc=bxml, addFinalizer=T)
+	invisible(bxml)
+}
+######################################################################################
+#' @export
+beast.add.logNormalPrior<- function(bxml, idref, mean, stdev, offset=0, meanInRealSpace='false')
+{
+	bxml.beast		<- getNodeSet(bxml, "//prior")[[1]]
+	tmp				<- newXMLNode("logNormalPrior", attrs= list(mean=as.character(mean), stdev=as.character(stdev), offset=as.character(offset), meanInRealSpace=meanInRealSpace), parent=bxml.beast, doc=bxml, addFinalizer=T)
 	tmp2			<- newXMLNode("parameter", attrs= list(idref=idref), parent=tmp, doc=bxml, addFinalizer=T)
 	invisible(bxml)
 }

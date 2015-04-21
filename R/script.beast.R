@@ -1,3 +1,7 @@
+.onAttach <- function(...) 
+{
+	packageStartupMessage("rBEAST 1.0.0\nhttps://github.com/olli0601/rBEAST")
+}
 ######################################################################################
 #	write xml file for BEAST multilocus.hky run
 #' @title Generate multilocus XML file with a codon specific GTR model and fixed starting tree  
@@ -259,8 +263,8 @@ beastxml.multilocus.hky<- function( file.name, seq.select, phd, verbose=1 )
 	beast.add.likelihood(bxml, 'likelihood', tmp)
 	#	add prior element
 	beast.add.priors(bxml, 'prior')
-	#	add priors
-	beast.add.uniformPrior(bxml, "hky.kappa", 0, 3)
+	#	add priors	https://code.google.com/p/beast-mcmc/wiki/ParameterPriors
+	beast.add.logNormalPrior(bxml, "hky.kappa", 1, 1.25, 0)		#default
 	beast.add.uniformPrior(bxml, "ucld.mean", 0.0001, 0.006)
 	beast.add.exponentialPrior(bxml, "ucld.stdev", 0.1, 0)
 	beast.add.exponentialPrior(bxml, "site.alpha", 0.5, 0)

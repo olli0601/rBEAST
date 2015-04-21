@@ -5,7 +5,13 @@ Title: rBEAST
 Author: {Oliver Ratmann}
 Maintainer: Oliver Ratmann <o.ratmann@imperial.ac.uk>
 Depends:
-    R (>= 3.1)
+    R (>= 3.1),
+    XML,
+    phytools,
+    ape,
+    data.table,
+    reshape2,
+    ggplot2
 Description: Automated generation of BEAST XML files, with a focus on dating
     phylogenies of HIV sequences
 License: GPL (>=2)
