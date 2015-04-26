@@ -91,7 +91,7 @@ dev.off()
 seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 setnames(seq.select.pol, 'POL', 'SEQ')
 file.name		<- paste(outdir,gsub('_seq.R',paste('_HKY_fixedtree_',select,'.xml',sep=''),basename(infile.seq)),sep='/')
-bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 #	write to file
 \dontrun{
 cat(paste("\nwrite xml file to",file.name))

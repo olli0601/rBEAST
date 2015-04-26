@@ -372,6 +372,30 @@ beast.writeNexus4Beauti<- function( seq.DNAbin.matrix, df, ph=NULL, file=NULL )
 	ans
 }
 ######################################################################################
+#' @title	Read BEAST ops file
+#' @export
+beast.read.ops<- function(file)
+{
+	z		<- readLines(file)
+	#only data
+	z		<- z[seq(4,length(z)-1)]
+	#rm whitespace
+	z		<- sapply(z, function(x) gsub('\\s+',' ',gsub("^\\s+|\\s+$", "", x) ) )
+	names(z)<- NULL
+	#
+	z		<- strsplit(z,' ')
+	ans		<- do.call('rbind',lapply(z, function(x)
+			{
+				tmp	<- suppressWarnings(as.numeric(x))
+				op	<- paste(x[which(is.na(tmp))], collapse='_')
+				tmp	<- tmp[!is.na(tmp)]
+				if(length(tmp)<5)
+					tmp<- c(NA, tmp)
+				data.table(Operator=op, Tuning=tmp[1], Count=tmp[2], Time=tmp[3], TimeOp=tmp[4], PrAccept=tmp[5])				
+			}))
+	ans
+}
+######################################################################################
 #' @title	Read BEAST log file
 #' @export
 beast.read.log<- function(file, select=c('state','likelihood'), verbose=1)
@@ -979,7 +1003,16 @@ beast.add.upDownOperator<- function(bxml, up.parameter.id, down.parameter.id, sc
 }
 ######################################################################################
 #' @export
-beast.add.deltaExchangeOperator<- function(bxml, parameter.id, delta=0.75, parameterWeights=c(948, 948, 948), weight=9)
+beast.add.uniformOperator<- function(bxml, parameter.id, weight=1)
+{
+	bxml.o			<- getNodeSet(bxml, "//operators")[[1]]
+	tmp				<- newXMLNode("uniformOperator", attrs= list(weight=as.character(weight)), parent=bxml.o, doc=bxml, addFinalizer=T)
+	dummy			<- newXMLNode("parameter", attrs= list(idref=parameter.id), parent=tmp, doc=bxml, addFinalizer=T)
+	invisible(bxml) 
+}
+######################################################################################
+#' @export
+beast.add.deltaExchangeOperator<- function(bxml, parameter.id, delta=0.75, parameterWeights=c(948, 948, 948), weight=1)
 {
 	bxml.o			<- getNodeSet(bxml, "//operators")[[1]]
 	tmp				<- newXMLNode("deltaExchange", attrs= list(delta=as.character(delta), parameterWeights=paste(parameterWeights, collapse=' '), weight=as.character(weight)), parent=bxml.o, doc=bxml, addFinalizer=T)
@@ -997,10 +1030,10 @@ beast.add.gmrfGridBlockUpdateOperator<- function(bxml, parameter.id, scaleFactor
 }
 ######################################################################################
 #' @export
-beast.add.scaleOperator<- function(bxml, parameter.id, scaleFactor=0.75, weight=0.1)
+beast.add.scaleOperator<- function(bxml, parameter.id, scaleFactor=0.75, weight=0.1, autoOptimize="true")
 {
 	bxml.o			<- getNodeSet(bxml, "//operators")[[1]]
-	tmp				<- newXMLNode("scaleOperator", attrs= list(scaleFactor=as.character(scaleFactor), weight=as.character(weight)), parent=bxml.o, doc=bxml, addFinalizer=T)
+	tmp				<- newXMLNode("scaleOperator", attrs= list(scaleFactor=as.character(scaleFactor), weight=as.character(weight), autoOptimize=autoOptimize), parent=bxml.o, doc=bxml, addFinalizer=T)
 	dummy			<- newXMLNode("parameter", attrs= list(idref=parameter.id), parent=tmp, doc=bxml, addFinalizer=T)
 	invisible(bxml) 
 }

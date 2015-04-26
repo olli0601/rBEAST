@@ -68,7 +68,7 @@ rbeast.mixing<- function()
 	ggsave(file=file, h=15, w=10)
 }
 
-rbeast.mixing.uweight140420<- function()
+rbeast.mixing.weight140419<- function()
 {
 	require(rBEAST)
 	require(coda)
@@ -142,6 +142,216 @@ rbeast.mixing.uweight140420<- function()
 			facet_grid(SEQ~WGHT_LGND) +
 			guides(fill=guide_legend(ncol=1))
 	file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150420_Weights_fixedtree_pol_GTR_mseq1000.pdf'	
+	ggsave(file=file, h=20, w=30)
+}
+
+rbeast.mixing.weight140424<- function()
+{
+	require(rBEAST)
+	require(coda)
+	
+	indir	<- file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files'
+	#	read log file
+	infiles	<- list.files(indir, pattern='log|ops')
+	#	get options
+	infiles	<- data.table(FILE=infiles)
+	infiles[, TYPE:= 'log']
+	set(infiles, infiles[, which(grepl('ops',FILE))], 'TYPE', 'ops')
+	infiles[, SUBSTM:= NA_character_]
+	set(infiles, infiles[, which(grepl('GTR',FILE))], 'SUBSTM', 'GTR')
+	set(infiles, infiles[, which(grepl('HKY',FILE))], 'SUBSTM', 'HKY')
+	infiles[, CODON:= 'No']
+	set(infiles, infiles[, which(grepl('CODON',FILE))], 'CODON', 'Yes')
+	infiles[, GENE:= NA_character_]
+	set(infiles, infiles[, which(grepl('pol',FILE))], 'GENE', 'pol')
+	infiles[, SEQ:= infiles[, substring(regmatches(FILE, regexpr('seq[0-9]+',FILE)),4)]]	
+	set(infiles, NULL, 'SEQ', infiles[, as.numeric(SEQ)])
+	set(infiles, infiles[, which(grepl('cseq3',FILE))], 'SEQ', 1350)
+	infiles[, CLU_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('mseq',FILE))], 'CLU_TYPE', 'largest')
+	set(infiles, infiles[, which(grepl('clrnd',FILE))], 'CLU_TYPE', 'random')
+	set(infiles, infiles[, which(grepl('cseq',FILE))], 'CLU_TYPE', 'all')
+	set(infiles, infiles[, which(grepl('clsm',FILE))], 'CLU_TYPE', 'smallest')
+	infiles[, WGHT_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('w4BR[0-9]+',FILE))], 'WGHT_TYPE', 'w4BR')
+	set(infiles, infiles[, which(grepl('w4BR2xIntrnl',FILE))], 'WGHT_TYPE', 'w42xIntrnl')		
+	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log|[0-9]+\\.ops',FILE))]]
+	set(infiles, NULL, 'WGHT', infiles[, as.numeric(substr(WGHT, 1, nchar(WGHT)-4))])
+	#	read logs
+	dfl		<- do.call('rbind',lapply(subset(infiles, TYPE=='log')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')				
+						z		<- beast.read.log(file, select=c('state','likelihood','posterior','ucld','branchRates','gtr','hky','site','logPopSize','rootHeight'), verbose=0)
+						z		<- melt(z, id.vars=c('state'))
+						z[, FILE:=f]
+						z
+					}))		
+	dfl		<- subset(dfl, state>2e6)
+	#	calculate effective size
+	dfm		<- dfl[, {				
+				z	<- effectiveSize(matrix(data=value,ncol=1))
+				list(ESS=z)
+			}, by=c('FILE','variable')]
+	dfm		<- merge(dfm, infiles, by='FILE')
+	setkey(dfm, WGHT_TYPE, WGHT)	
+	dfm[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	set(dfm, NULL, 'WGHT_LGND', dfm[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	read ops
+	dfo		<- do.call('rbind',lapply(subset(infiles, TYPE=='ops')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')							
+						z 		<- beast.read.ops(file)					
+						z[, FILE:=f]
+						z
+					}))	
+	dfo		<- merge(dfo, infiles, by='FILE')
+	setkey(dfo, WGHT_TYPE, WGHT)
+	dfo[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	set(dfo, NULL, 'WGHT_LGND', dfo[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	generate plots
+	#nseq	<- 1000
+	nseq	<- 400
+	dfsp	<- subset(dfm, SEQ==nseq)
+	
+	setkey(dfsp, ESS)	
+	ggplot(dfsp, aes(x=variable, y=ESS, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(breaks=c(0,100,300,500,700), minor_breaks=NULL, expand=c(0,0)) +
+			labs(y='effective sample size\n(20e6 iterations, burn-in 10%)', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste( '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files/150424_Weights_fixedtopo_pol_GTR_mseq',nseq,'_ESS.pdf', sep='' )	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(variable))], w=25)
+		
+	dfsp	<- subset(dfo, SEQ==nseq)
+	set(dfsp, NULL, 'Operator', dfsp[, substr(Operator,1,60)])
+	ggplot(dfsp, aes(x=Operator, y=Count, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator count', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files/150424_Weights_fixedtopo_pol_GTR_mseq',nseq,'_Count.pdf', sep='')	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(Operator))], w=25)
+	
+	ggplot(dfsp, aes(x=Operator, y=PrAccept, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator Pr Accept', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files/150424_Weights_fixedtopo_pol_GTR_mseq',nseq,'_PrAccept.pdf', sep='')	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(Operator))], w=25)
+}
+
+rbeast.mixing.weight140421<- function()
+{
+	require(rBEAST)
+	require(coda)
+	
+	indir	<- file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150421_files'
+	#	read log file
+	infiles	<- list.files(indir, pattern='log|ops')
+	#	get options
+	infiles	<- data.table(FILE=infiles)
+	infiles[, TYPE:= 'log']
+	set(infiles, infiles[, which(grepl('ops',FILE))], 'TYPE', 'ops')
+	infiles[, SUBSTM:= NA_character_]
+	set(infiles, infiles[, which(grepl('GTR',FILE))], 'SUBSTM', 'GTR')
+	set(infiles, infiles[, which(grepl('HKY',FILE))], 'SUBSTM', 'HKY')
+	infiles[, CODON:= 'No']
+	set(infiles, infiles[, which(grepl('CODON',FILE))], 'CODON', 'Yes')
+	infiles[, GENE:= NA_character_]
+	set(infiles, infiles[, which(grepl('pol',FILE))], 'GENE', 'pol')
+	infiles[, SEQ:= infiles[, substring(regmatches(FILE, regexpr('seq[0-9]+',FILE)),4)]]	
+	set(infiles, NULL, 'SEQ', infiles[, as.numeric(SEQ)])
+	set(infiles, infiles[, which(grepl('cseq3',FILE))], 'SEQ', 1350)
+	infiles[, CLU_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('mseq',FILE))], 'CLU_TYPE', 'largest')
+	set(infiles, infiles[, which(grepl('clrnd',FILE))], 'CLU_TYPE', 'random')
+	set(infiles, infiles[, which(grepl('cseq',FILE))], 'CLU_TYPE', 'all')
+	set(infiles, infiles[, which(grepl('clsm',FILE))], 'CLU_TYPE', 'smallest')
+	infiles[, WGHT_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('w4UCLD[0-9]+',FILE))], 'WGHT_TYPE', 'w4UCLD')
+	set(infiles, infiles[, which(grepl('w4UCLDUpDown',FILE))], 'WGHT_TYPE', 'w4UCLDUpDown')		
+	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log|[0-9]+\\.ops',FILE))]]
+	set(infiles, NULL, 'WGHT', infiles[, substr(WGHT, 1, nchar(WGHT)-4)])
+	#	read logs
+	dfl		<- do.call('rbind',lapply(subset(infiles, TYPE=='log')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')				
+						z		<- beast.read.log(file, select=c('state','likelihood','posterior','ucld','branchRates','gtr','hky','site','logPopSize'), verbose=0)
+						z		<- melt(z, id.vars=c('state'))
+						z[, FILE:=f]
+						z
+					}))		
+	dfl		<- subset(dfl, state>2e6)
+	#	calculate effective size
+	dfm		<- dfl[, {				
+				z	<- effectiveSize(matrix(data=value,ncol=1))
+				list(ESS=z)
+			}, by=c('FILE','variable')]
+	dfm		<- merge(dfm, infiles, by='FILE')
+	dfm[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	#	read ops
+	dfo		<- do.call('rbind',lapply(subset(infiles, TYPE=='ops')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')							
+						z 		<- beast.read.ops(file)					
+						z[, FILE:=f]
+						z
+					}))	
+	dfo		<- merge(dfo, infiles, by='FILE')
+	dfo[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	
+	#	generate plots
+	#nseq	<- 1000
+	nseq	<- 400
+	dfsp	<- subset(dfm, SEQ==nseq)
+	
+	setkey(dfsp, ESS)	
+	ggplot(dfsp, aes(x=variable, y=ESS, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(breaks=c(0,100,300,500,700), minor_breaks=NULL, expand=c(0,0)) +
+			labs(y='effective sample size\n(20e6 iterations, burn-in 10%)', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste( '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150421_files/150421_Weights_fixedtree_pol_GTR_mseq',nseq,'_ESS.pdf', sep='' )	
+	ggsave(file=file, h=20, w=30)
+	
+	dfsp	<- subset(dfo, SEQ==nseq)
+	ggplot(dfsp, aes(x=Operator, y=Count, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator count', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150421_files/150421_Weights_fixedtree_pol_GTR_mseq',nseq,'_Count.pdf', sep='')	
+	ggsave(file=file, h=20, w=30)
+	
+	ggplot(dfsp, aes(x=Operator, y=PrAccept, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator Pr Accept', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150421_files/150421_Weights_fixedtree_pol_GTR_mseq',nseq,'_PrAccept.pdf', sep='')	
 	ggsave(file=file, h=20, w=30)
 }
 
@@ -289,6 +499,305 @@ rbeast.skygrid<- function()
 	
 }
 
+rbeast.skygrid.hky.weight.allexceptlogpopsize.140426<- function()
+{
+	require(rBEAST)
+	require(data.table)
+	require(ape)
+	require(XML)
+	tree.id.labelsep		<- '|'
+	tree.id.label.idx.ctime	<- 4 	
+	select		<- 'grid-mseq1000'
+	indir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files'
+	#indir		<- '/Users/Oliver/git/HPTN071sim/tmp140914/140716_RUN001_INTERNAL'  
+	outdir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files'
+	infiles		<- list.files(indir, '.*INTERNAL.R$', full.names=FALSE)
+	#stopifnot(length(infiles)==1)
+	
+	#	run: no autooptimize on UCLD
+	selects		<- paste('grid-mseq',c(400, 1000), sep='')
+	for(w in c(0.75, 1, 1.25, 1.5, 1.75, 2))
+	{			
+		for(select in selects)
+		{
+			for(i in seq_along(infiles))
+			{
+				infile			<- infiles[i]
+				#	load simulated data
+				file			<- paste(indir, '/', infile, sep='')
+				file.name		<- paste(outdir, gsub('_SIMULATED_INTERNAL.R',paste('_TEST_pol_HKY_fixedtree_',select,"_s4UCLN",w*100,'.xml',sep=''),infile), sep='/')
+				cat(paste('\nLoading file', file))
+				load(file)		#expect "df.epi"    "df.trms"   "df.inds"   "df.sample" "df.seq"
+				set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+				setnames(df.seq, c("LABEL", "IDCLU", "IDPOP"), c("TAXON_NAME", "CLU_ID", "TAXON_ID"))
+				df.seq[, SAMPLINGTIME:=df.seq[, as.numeric(sapply(strsplit(TAXON_NAME,'|',fixed=1),'[[',4))]]	
+				seq.select		<- beast.choose.seq.by.clusters(df.seq, select, verbose=1)			
+				#
+				tmp				<- list.files(indir, '_DATEDTREE.newick$', full.names=FALSE)
+				tmp				<- tmp[ grepl(substr(infile, 1, regexpr('_SIMULATED',infile)), tmp) ]
+				phd				<- read.tree(paste(indir, tmp, sep='/'))
+				tmp2			<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+				set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.id.labelsep, fixed=TRUE),'[[',1),7)) ] )
+				tmp2			<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
+				phd				<- lapply(tmp2[,IDX], function(i) phd[[i]] )
+				names(phd)		<- tmp2[, CLU_ID]
+				#
+				#	create BEAST XML POL
+				#
+				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
+				setnames(seq.select.pol, 'POL', 'SEQ')									
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
+				#
+				#	adjust parameter weights: all 1 but higher for UCLD
+				#
+				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]			
+				tmp			<- unlist(lapply( c("hky","site","skygrid.precision","skygrid","branchRates.categories_CLU"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- 1
+				tmp			<- unlist(lapply( c("ucld"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+				{
+					xmlAttrs(x)["weight"]		<- 5
+					xmlAttrs(x)["scaleFactor"]	<- w
+					xmlAttrs(x)["autoOptimize"]	<- 'false'
+				}
+				cat(paste("\nwrite xml file to",file.name))
+				saveXML(bxml, file=file.name)				
+			}
+		}
+	}
+}
+
+rbeast.skygrid.hky.weight.allexceptlogpopsize.140424<- function()
+{
+	require(rBEAST)
+	tree.id.labelsep		<- '|'
+	tree.id.label.idx.ctime	<- 4 	
+	select		<- 'grid-mseq400'
+	indir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files'
+	#indir		<- '/Users/Oliver/git/HPTN071sim/tmp140914/140716_RUN001_INTERNAL'  
+	outdir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files'
+	infiles		<- list.files(indir, '.*INTERNAL.R$', full.names=FALSE)
+	#stopifnot(length(infiles)==1)
+	
+	#	run: baseline
+	selects		<- paste('grid-mseq',c(400, 1000), sep='')
+	for(w in c(1, 5, 10))
+	{			
+		for(select in selects)
+		{
+			for(i in seq_along(infiles))
+			{
+				infile			<- infiles[i]
+				#	load simulated data
+				file			<- paste(indir, '/', infile, sep='')
+				file.name		<- paste(outdir, gsub('_SIMULATED_INTERNAL.R',paste('_TEST_pol_HKY_fixedtopo_',select,"_w4BR",w,'.xml',sep=''),infile), sep='/')
+				cat(paste('\nLoading file', file))
+				load(file)		#expect "df.epi"    "df.trms"   "df.inds"   "df.sample" "df.seq"
+				set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+				setnames(df.seq, c("LABEL", "IDCLU", "IDPOP"), c("TAXON_NAME", "CLU_ID", "TAXON_ID"))
+				df.seq[, SAMPLINGTIME:=df.seq[, as.numeric(sapply(strsplit(TAXON_NAME,'|',fixed=1),'[[',4))]]	
+				seq.select		<- beast.choose.seq.by.clusters(df.seq, select, verbose=1)			
+				#
+				tmp				<- list.files(indir, '_DATEDTREE.newick$', full.names=FALSE)
+				tmp				<- tmp[ grepl(substr(infile, 1, regexpr('_SIMULATED',infile)), tmp) ]
+				phd				<- read.tree(paste(indir, tmp, sep='/'))
+				tmp2			<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+				set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.id.labelsep, fixed=TRUE),'[[',1),7)) ] )
+				tmp2			<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
+				phd				<- lapply(tmp2[,IDX], function(i) phd[[i]] )
+				names(phd)		<- tmp2[, CLU_ID]
+				#
+				#	create BEAST XML POL
+				#
+				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
+				setnames(seq.select.pol, 'POL', 'SEQ')									
+				bxml			<- beastxml.multilocus.hky.fixed.tree.fixed.topology( file.name, seq.select.pol, phd, verbose=1 )
+				#
+				#	adjust parameter weights: all node height higher weight
+				#
+				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]			
+				tmp			<- unlist(lapply( c("treeModel"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- w
+				
+				cat(paste("\nwrite xml file to",file.name))
+				saveXML(bxml, file=file.name)				
+			}
+		}
+	}
+	#	run: twice the weight on internal node heights
+	selects		<- paste('grid-mseq',c(400, 1000), sep='')
+	for(w in c(1, 5, 10))
+	{			
+		for(select in selects)
+		{
+			for(i in seq_along(infiles))
+			{
+				infile			<- infiles[i]
+				#	load simulated data
+				file			<- paste(indir, '/', infile, sep='')
+				file.name		<- paste(outdir, gsub('_SIMULATED_INTERNAL.R',paste('_TEST_pol_HKY_fixedtopo_',select,"_w4BR2xIntrnl",w,'.xml',sep=''),infile), sep='/')
+				cat(paste('\nLoading file', file))
+				load(file)		#expect "df.epi"    "df.trms"   "df.inds"   "df.sample" "df.seq"
+				set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+				setnames(df.seq, c("LABEL", "IDCLU", "IDPOP"), c("TAXON_NAME", "CLU_ID", "TAXON_ID"))
+				df.seq[, SAMPLINGTIME:=df.seq[, as.numeric(sapply(strsplit(TAXON_NAME,'|',fixed=1),'[[',4))]]	
+				seq.select		<- beast.choose.seq.by.clusters(df.seq, select, verbose=1)			
+				#
+				tmp				<- list.files(indir, '_DATEDTREE.newick$', full.names=FALSE)
+				tmp				<- tmp[ grepl(substr(infile, 1, regexpr('_SIMULATED',infile)), tmp) ]
+				phd				<- read.tree(paste(indir, tmp, sep='/'))
+				tmp2			<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+				set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.id.labelsep, fixed=TRUE),'[[',1),7)) ] )
+				tmp2			<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
+				phd				<- lapply(tmp2[,IDX], function(i) phd[[i]] )
+				names(phd)		<- tmp2[, CLU_ID]
+				#
+				#	create BEAST XML POL
+				#
+				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
+				setnames(seq.select.pol, 'POL', 'SEQ')									
+				bxml			<- beastxml.multilocus.hky.fixed.tree.fixed.topology( file.name, seq.select.pol, phd, verbose=1 )
+				#	all node height higher weight
+				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]			
+				tmp			<- unlist(lapply( c("treeModel"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- w
+				#	all inner node heights twice weight
+				tmp			<- unlist(lapply( c("treeModel.internalNodeHeights"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- 2*w
+				cat(paste("\nwrite xml file to",file.name))
+				saveXML(bxml, file=file.name)				
+			}
+		}
+	}
+	#	run: with UpDown operator on UCLN
+	for(w in c(1, 5, 10))
+	{			
+		for(select in selects)
+		{
+			for(i in seq_along(infiles))
+			{
+				infile			<- infiles[i]
+				#	load simulated data
+				file			<- paste(indir, '/', infile, sep='')
+				file.name		<- paste(outdir, gsub('_SIMULATED_INTERNAL.R',paste('_TEST_pol_HKY_fixedtopo_',select,"_w4BrUCLDUpDown",w,'.xml',sep=''),infile), sep='/')
+				cat(paste('\nLoading file', file))
+				load(file)		#expect "df.epi"    "df.trms"   "df.inds"   "df.sample" "df.seq"
+				set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+				setnames(df.seq, c("LABEL", "IDCLU", "IDPOP"), c("TAXON_NAME", "CLU_ID", "TAXON_ID"))
+				df.seq[, SAMPLINGTIME:=df.seq[, as.numeric(sapply(strsplit(TAXON_NAME,'|',fixed=1),'[[',4))]]	
+				seq.select		<- beast.choose.seq.by.clusters(df.seq, select, verbose=1)			
+				#
+				tmp				<- list.files(indir, '_DATEDTREE.newick$', full.names=FALSE)
+				tmp				<- tmp[ grepl(substr(infile, 1, regexpr('_SIMULATED',infile)), tmp) ]
+				phd				<- read.tree(paste(indir, tmp, sep='/'))
+				tmp2			<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+				set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.id.labelsep, fixed=TRUE),'[[',1),7)) ] )
+				tmp2			<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
+				phd				<- lapply(tmp2[,IDX], function(i) phd[[i]] )
+				names(phd)		<- tmp2[, CLU_ID]
+				#
+				#	create BEAST XML POL
+				#
+				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
+				setnames(seq.select.pol, 'POL', 'SEQ')									
+				bxml			<- beastxml.multilocus.hky.fixed.tree.fixed.topology( file.name, seq.select.pol, phd, verbose=1 )
+				#
+				#	adjust parameter weights: all node height higher weight
+				#
+				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]			
+				tmp			<- unlist(lapply( c("ucld"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('scaleOperator[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- 0.001				
+				beast.add.upDownOperator(bxml, "ucld.mean", "ucld.stdev", scaleFactor=0.75, weight=5)
+				tmp			<- unlist(lapply( c("treeModel"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- w
+				cat(paste("\nwrite xml file to",file.name))
+				saveXML(bxml, file=file.name)				
+			}
+		}
+	}
+	#	run: with higher internal node weights
+	for(w in c(3, 4, 5, 10, 20))
+	{			
+		for(select in selects)
+		{
+			for(i in seq_along(infiles))
+			{
+				infile			<- infiles[i]
+				#	load simulated data
+				file			<- paste(indir, '/', infile, sep='')
+				file.name		<- paste(outdir, gsub('_SIMULATED_INTERNAL.R',paste('_TEST_pol_HKY_fixedtopo_',select,"_w4Intrnl",w,'.xml',sep=''),infile), sep='/')
+				cat(paste('\nLoading file', file))
+				load(file)		#expect "df.epi"    "df.trms"   "df.inds"   "df.sample" "df.seq"
+				set( df.seq, NULL, 'IDCLU', df.seq[, as.integer(IDCLU)] )
+				setnames(df.seq, c("LABEL", "IDCLU", "IDPOP"), c("TAXON_NAME", "CLU_ID", "TAXON_ID"))
+				df.seq[, SAMPLINGTIME:=df.seq[, as.numeric(sapply(strsplit(TAXON_NAME,'|',fixed=1),'[[',4))]]	
+				seq.select		<- beast.choose.seq.by.clusters(df.seq, select, verbose=1)			
+				#
+				tmp				<- list.files(indir, '_DATEDTREE.newick$', full.names=FALSE)
+				tmp				<- tmp[ grepl(substr(infile, 1, regexpr('_SIMULATED',infile)), tmp) ]
+				phd				<- read.tree(paste(indir, tmp, sep='/'))
+				tmp2			<- data.table(TAXON_ID= sapply(phd, function(x) x$tip.label[1]), IDX=seq_along(phd))
+				set( tmp2, NULL, 'TAXON_ID', tmp2[, as.integer(substring(sapply(strsplit(TAXON_ID, tree.id.labelsep, fixed=TRUE),'[[',1),7)) ] )
+				tmp2			<- merge(subset(seq.select, select=c(TAXON_ID, CLU_ID)), tmp2, by='TAXON_ID')			
+				phd				<- lapply(tmp2[,IDX], function(i) phd[[i]] )
+				names(phd)		<- tmp2[, CLU_ID]
+				#
+				#	create BEAST XML POL
+				#
+				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
+				setnames(seq.select.pol, 'POL', 'SEQ')									
+				bxml			<- beastxml.multilocus.hky.fixed.tree.fixed.topology( file.name, seq.select.pol, phd, verbose=1 )
+				#
+				#	adjust parameter weights: all node height higher weight
+				#
+				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]							
+				tmp			<- unlist(lapply( c("treeModel"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- 1
+				#	all inner node heights higher weight
+				tmp			<- unlist(lapply( c("treeModel.internalNodeHeights"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- w
+				cat(paste("\nwrite xml file to",file.name))
+				saveXML(bxml, file=file.name)				
+			}
+		}
+	}
+}
+
 rbeast.skygrid.hky.weight.allexceptlogpopsize.140421<- function()
 {
 	require(rBEAST)
@@ -338,7 +847,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140421<- function()
 				#
 				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 				setnames(seq.select.pol, 'POL', 'SEQ')									
-				bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 				#
 				#	adjust parameter weights: all 1 but higher for UCLD
 				#
@@ -393,7 +902,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140421<- function()
 				#
 				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 				setnames(seq.select.pol, 'POL', 'SEQ')									
-				bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 				#
 				#	adjust parameter weights: all 1 but higher for UCLD and add UpDown operator
 				#
@@ -469,7 +978,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140420<- function()
 				#
 				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 				setnames(seq.select.pol, 'POL', 'SEQ')									
-				bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 				#
 				#	adjust parameter weights: all the same
 				#
@@ -516,7 +1025,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140420<- function()
 				#
 				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 				setnames(seq.select.pol, 'POL', 'SEQ')									
-				bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 				#
 				#	adjust parameter weights: all the same
 				#
@@ -563,7 +1072,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140420<- function()
 				#
 				seq.select.pol	<- subset(seq.select, select=c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SAMPLINGTIME", "POL" ))
 				setnames(seq.select.pol, 'POL', 'SEQ')									
-				bxml			<- beastxml.multilocus.hky( file.name, seq.select.pol, phd, verbose=1 )
+				bxml			<- beastxml.multilocus.hky.fixed.tree( file.name, seq.select.pol, phd, verbose=1 )
 				#
 				#	adjust parameter weights: all the same
 				#
