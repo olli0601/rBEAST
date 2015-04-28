@@ -1,3 +1,24 @@
+rbeast.clusterbranchlengths.150205<- function()
+{	
+	file			<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150417_files/150129_HPTN071_scA-mFP25_DATEDTREE.newick'
+	phd				<- read.tree(file)
+	tmp				<- which( sapply(phd, Ntip)>1 )
+	phd				<- lapply( tmp, function(i) phd[[i]] )
+	dfb				<- do.call('rbind',lapply(seq_along(phd), function(i)
+			{
+				data.table(CLU=i, NTIP=Ntip(phd[[i]]), BRL=phd[[i]]$edge.length)
+			}))
+	dfb[, CLU_SIZE:='']
+	set(dfb, dfb[, which(NTIP<4)], 'CLU_SIZE','<4')
+	set(dfb, dfb[, which(NTIP>3 & NTIP<=10)], 'CLU_SIZE','4-10')
+	set(dfb, dfb[, which(NTIP>10)], 'CLU_SIZE','>10')
+	ggplot(dfb, aes(x=BRL, group=CLU, colour=factor(NTIP))) + stat_ecdf() + guides(colour=guide_legend(ncol=7)) +
+			theme(legend.position='bottom') + labs(x='branch length\n(years)', y='cumulative distribution', colour='number of tips\nper cluster') +
+			facet_grid(~CLU_SIZE)
+	file			<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150417_files/150129_HPTN071_scA-mFP25_DATEDTREE_brld.pdf'	
+	ggsave(file=file, h=8, w=8)
+}
+
 rbeast.mixing<- function()
 {
 	require(coda)
@@ -68,16 +89,18 @@ rbeast.mixing<- function()
 	ggsave(file=file, h=15, w=10)
 }
 
-rbeast.mixing.weight140419<- function()
+rbeast.mixing.weight150419<- function()
 {
 	require(rBEAST)
 	require(coda)
 	
 	indir	<- file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files'
 	#	read log file
-	infiles	<- list.files(indir, pattern='log$')
+	infiles	<- list.files(indir, pattern='log|ops')
 	#	get options
 	infiles	<- data.table(FILE=infiles)
+	infiles[, TYPE:= 'log']
+	set(infiles, infiles[, which(grepl('ops',FILE))], 'TYPE', 'ops')	
 	infiles[, SUBSTM:= NA_character_]
 	set(infiles, infiles[, which(grepl('GTR',FILE))], 'SUBSTM', 'GTR')
 	set(infiles, infiles[, which(grepl('HKY',FILE))], 'SUBSTM', 'HKY')
@@ -97,10 +120,11 @@ rbeast.mixing.weight140419<- function()
 	set(infiles, infiles[, which(grepl('uweight',FILE))], 'WGHT_TYPE', 'same')
 	set(infiles, infiles[, which(grepl('uwnoSkgrdBlck',FILE))], 'WGHT_TYPE', 'same ex skygrid')
 	set(infiles, infiles[, which(grepl('uwnoSkgrdBlckBrRtCtgrs',FILE))], 'WGHT_TYPE', 'same ex skygrid and branch rates')	
-	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log',FILE))]]
-	set(infiles, NULL, 'WGHT', infiles[, substr(WGHT, 1, nchar(WGHT)-4)])
-		
-	dfl	<- do.call('rbind',lapply(infiles[, unique(FILE)], function(f)
+	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log|[0-9]+\\.ops',FILE))]]
+	set(infiles, NULL, 'WGHT', infiles[, as.numeric(substr(WGHT, 1, nchar(WGHT)-4))])
+	
+	#	read logs
+	dfl		<- do.call('rbind',lapply(subset(infiles, TYPE=='log')[, unique(FILE)], function(f)
 					{
 						cat(paste('\nprocess file', f))
 						file	<- paste(indir, '/', f, sep='')				
@@ -109,29 +133,40 @@ rbeast.mixing.weight140419<- function()
 						z[, FILE:=f]
 						z
 					}))		
-	dfl	<- subset(dfl, state>2e6)
+	dfl		<- subset(dfl, state>2e6)
+	#	calculate effective size
 	dfm		<- dfl[, {				
 				z	<- effectiveSize(matrix(data=value,ncol=1))
 				list(ESS=z)
 			}, by=c('FILE','variable')]
 	dfm		<- merge(dfm, infiles, by='FILE')
+	setkey(dfm, WGHT_TYPE, WGHT)	
 	dfm[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
-	#	SEQ 400
-	dfsp	<- subset(dfm, SEQ==400)
-	setkey(dfsp, ESS)	
-	ggplot(dfsp, aes(x=variable, y=ESS, fill=FILE)) + geom_bar(stat='identity') + 
-			coord_flip() +
-			scale_y_continuous(breaks=c(0,100,300,500,700), minor_breaks=NULL, expand=c(0,0)) +
-			labs(y='effective sample size\n(20e6 iterations, burn-in 10%)', x='') +
-			theme_bw() +
-			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
-			facet_grid(SEQ~WGHT_LGND) +
-			guides(fill=guide_legend(ncol=1))
-	file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150420_Weights_fixedtree_pol_GTR_mseq400.pdf'	
-	ggsave(file=file, h=20, w=30)
+	set(dfm, NULL, 'WGHT_LGND', dfm[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	read ops
+	dfo		<- do.call('rbind',lapply(subset(infiles, TYPE=='ops')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')							
+						z 		<- beast.read.ops(file)					
+						z[, FILE:=f]
+						z
+					}))	
+	dfo		<- merge(dfo, infiles, by='FILE')
+	setkey(dfo, WGHT_TYPE, WGHT)
+	dfo[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	set(dfo, NULL, 'WGHT_LGND', dfo[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	generate plots
+	#nseq	<- 1000
+	nseq	<- 400
+	dfsp	<- subset(dfm, SEQ==nseq)
 	
-	#	SEQ 1000
-	dfsp	<- subset(dfm, SEQ==1000)
+	
+	#	generate plots
+	#nseq	<- 1000
+	nseq	<- 400
+	
+	dfsp	<- subset(dfm, SEQ==nseq)	
 	setkey(dfsp, ESS)	
 	ggplot(dfsp, aes(x=variable, y=ESS, fill=FILE)) + geom_bar(stat='identity') + 
 			coord_flip() +
@@ -141,11 +176,141 @@ rbeast.mixing.weight140419<- function()
 			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
 			facet_grid(SEQ~WGHT_LGND) +
 			guides(fill=guide_legend(ncol=1))
-	file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150420_Weights_fixedtree_pol_GTR_mseq1000.pdf'	
-	ggsave(file=file, h=20, w=30)
+	file	<- paste( '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150419_Weights_fixedtree_pol_GTR_mseq',nseq,'_ESS.pdf', sep='' )	
+	ggsave(file=file, h=0.25*dfsp[, length(unique(variable))], w=25)
+	
+	dfsp	<- subset(dfo, SEQ==nseq)
+	ggplot(dfsp, aes(x=Operator, y=Count, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator count', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150419_Weights_fixedtree_pol_GTR_mseq',nseq,'_Count.pdf', sep='')	
+	ggsave(file=file, h=ifelse(nseq==400,0.5,0.2)*dfsp[, length(unique(Operator))], w=25)
+	
+	ggplot(dfsp, aes(x=Operator, y=PrAccept, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator Pr Accept', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files/150419_Weights_fixedtree_pol_GTR_mseq',nseq,'_PrAccept.pdf', sep='')	
+	ggsave(file=file, h=ifelse(nseq==400,0.5,0.2)*dfsp[, length(unique(Operator))], w=25)	
 }
 
-rbeast.mixing.weight140424<- function()
+rbeast.mixing.weight150426<- function()
+{
+	require(rBEAST)
+	require(coda)
+	
+	indir	<- file	<- '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files'
+	#	read log file
+	infiles	<- list.files(indir, pattern='log|ops')
+	#	get options
+	infiles	<- data.table(FILE=infiles)
+	infiles[, TYPE:= 'log']
+	set(infiles, infiles[, which(grepl('ops',FILE))], 'TYPE', 'ops')
+	infiles[, SUBSTM:= NA_character_]
+	set(infiles, infiles[, which(grepl('GTR',FILE))], 'SUBSTM', 'GTR')
+	set(infiles, infiles[, which(grepl('HKY',FILE))], 'SUBSTM', 'HKY')
+	infiles[, CODON:= 'No']
+	set(infiles, infiles[, which(grepl('CODON',FILE))], 'CODON', 'Yes')
+	infiles[, GENE:= NA_character_]
+	set(infiles, infiles[, which(grepl('pol',FILE))], 'GENE', 'pol')
+	infiles[, SEQ:= infiles[, substring(regmatches(FILE, regexpr('seq[0-9]+',FILE)),4)]]	
+	set(infiles, NULL, 'SEQ', infiles[, as.numeric(SEQ)])
+	set(infiles, infiles[, which(grepl('cseq3',FILE))], 'SEQ', 1350)
+	infiles[, CLU_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('mseq',FILE))], 'CLU_TYPE', 'largest')
+	set(infiles, infiles[, which(grepl('clrnd',FILE))], 'CLU_TYPE', 'random')
+	set(infiles, infiles[, which(grepl('cseq',FILE))], 'CLU_TYPE', 'all')
+	set(infiles, infiles[, which(grepl('clsm',FILE))], 'CLU_TYPE', 'smallest')
+	infiles[, WGHT_TYPE:= NA_character_]
+	set(infiles, infiles[, which(grepl('w4Intrnl[0-9]+',FILE))], 'WGHT_TYPE', 'w4Intrnl')
+	set(infiles, infiles[, which(grepl('w4BrUCLDUpDown',FILE))], 'WGHT_TYPE', 'w4UCLDUpDown')		
+	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log|[0-9]+\\.ops',FILE))]]
+	set(infiles, NULL, 'WGHT', infiles[, as.numeric(substr(WGHT, 1, nchar(WGHT)-4))])
+	#	read logs
+	dfl		<- do.call('rbind',lapply(subset(infiles, TYPE=='log')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')				
+						z		<- beast.read.log(file, select=c('state','likelihood','posterior','ucld','branchRates','gtr','hky','site','logPopSize','rootHeight'), verbose=0)
+						z		<- melt(z, id.vars=c('state'))
+						z[, FILE:=f]
+						z
+					}))		
+	dfl		<- subset(dfl, state>2e6)
+	#	calculate effective size
+	dfm		<- dfl[, {				
+				z	<- effectiveSize(matrix(data=value,ncol=1))
+				list(ESS=z)
+			}, by=c('FILE','variable')]
+	dfm		<- merge(dfm, infiles, by='FILE')
+	setkey(dfm, WGHT_TYPE, WGHT)	
+	dfm[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	set(dfm, NULL, 'WGHT_LGND', dfm[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	read ops
+	dfo		<- do.call('rbind',lapply(subset(infiles, TYPE=='ops')[, unique(FILE)], function(f)
+					{
+						cat(paste('\nprocess file', f))
+						file	<- paste(indir, '/', f, sep='')							
+						z 		<- beast.read.ops(file)					
+						z[, FILE:=f]
+						z
+					}))	
+	dfo		<- merge(dfo, infiles, by='FILE')
+	setkey(dfo, WGHT_TYPE, WGHT)
+	dfo[, WGHT_LGND:= paste(WGHT_TYPE, WGHT, sep='\n')]
+	set(dfo, NULL, 'WGHT_LGND', dfo[, factor(WGHT_LGND, levels=unique(WGHT_LGND), labels=unique(WGHT_LGND))])
+	#	generate plots
+	#nseq	<- 1000
+	nseq	<- 400
+	dfsp	<- subset(dfm, SEQ==nseq)
+	
+	setkey(dfsp, ESS)	
+	ggplot(dfsp, aes(x=variable, y=ESS, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(breaks=c(0,100,300,500,700), minor_breaks=NULL, expand=c(0,0)) +
+			labs(y='effective sample size\n(20e6 iterations, burn-in 10%)', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste( '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files/150426_Weights_fixedtopo_pol_GTR_mseq',nseq,'_ESS.pdf', sep='' )	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(variable))], w=25)
+		
+	dfsp	<- subset(dfo, SEQ==nseq)
+	set(dfsp, NULL, 'Operator', dfsp[, substr(Operator,1,60)])
+	ggplot(dfsp, aes(x=Operator, y=Count, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator count', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files/150426_Weights_fixedtopo_pol_GTR_mseq',nseq,'_Count.pdf', sep='')	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(Operator))], w=25)
+	
+	ggplot(dfsp, aes(x=Operator, y=PrAccept, fill=FILE)) + geom_bar(stat='identity') + 
+			coord_flip() +
+			scale_y_continuous(expand=c(0,0)) +
+			labs(y='Operator Pr Accept', x='') +
+			theme_bw() +
+			theme(legend.position='bottom',panel.grid.minor = element_line(colour='grey70', size=0.2), panel.grid.major = element_line(colour='grey70', size=0.3)) 	+
+			facet_grid(SEQ~WGHT_LGND) +
+			guides(fill=guide_legend(ncol=1))
+	file	<- paste('/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files/150426_Weights_fixedtopo_pol_GTR_mseq',nseq,'_PrAccept.pdf', sep='')	
+	ggsave(file=file, h=0.2*dfsp[, length(unique(Operator))], w=25)
+}
+
+rbeast.mixing.weight150424<- function()
 {
 	require(rBEAST)
 	require(coda)
@@ -226,7 +391,7 @@ rbeast.mixing.weight140424<- function()
 			guides(fill=guide_legend(ncol=1))
 	file	<- paste( '/Users/Oliver/Dropbox (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150424_files/150424_Weights_fixedtopo_pol_GTR_mseq',nseq,'_ESS.pdf', sep='' )	
 	ggsave(file=file, h=0.2*dfsp[, length(unique(variable))], w=25)
-		
+	
 	dfsp	<- subset(dfo, SEQ==nseq)
 	set(dfsp, NULL, 'Operator', dfsp[, substr(Operator,1,60)])
 	ggplot(dfsp, aes(x=Operator, y=Count, fill=FILE)) + geom_bar(stat='identity') + 
@@ -252,7 +417,7 @@ rbeast.mixing.weight140424<- function()
 	ggsave(file=file, h=0.2*dfsp[, length(unique(Operator))], w=25)
 }
 
-rbeast.mixing.weight140421<- function()
+rbeast.mixing.weight150421<- function()
 {
 	require(rBEAST)
 	require(coda)
@@ -281,9 +446,9 @@ rbeast.mixing.weight140421<- function()
 	set(infiles, infiles[, which(grepl('clsm',FILE))], 'CLU_TYPE', 'smallest')
 	infiles[, WGHT_TYPE:= NA_character_]
 	set(infiles, infiles[, which(grepl('w4UCLD[0-9]+',FILE))], 'WGHT_TYPE', 'w4UCLD')
-	set(infiles, infiles[, which(grepl('w4UCLDUpDown',FILE))], 'WGHT_TYPE', 'w4UCLDUpDown')		
+	set(infiles, infiles[, which(grepl('w4UCLDUpDown',FILE))], 'WGHT_TYPE', 'w4UCLDUpDown')			
 	infiles[, WGHT:= infiles[, regmatches(FILE, regexpr('[0-9]+\\.log|[0-9]+\\.ops',FILE))]]
-	set(infiles, NULL, 'WGHT', infiles[, substr(WGHT, 1, nchar(WGHT)-4)])
+	set(infiles, NULL, 'WGHT', infiles[, as.numeric(substr(WGHT, 1, nchar(WGHT)-4))])
 	#	read logs
 	dfl		<- do.call('rbind',lapply(subset(infiles, TYPE=='log')[, unique(FILE)], function(f)
 					{
@@ -499,7 +664,7 @@ rbeast.skygrid<- function()
 	
 }
 
-rbeast.skygrid.hky.weight.allexceptlogpopsize.140426<- function()
+rbeast.skygrid.hky.weight.allexceptlogpopsize.150428<- function()
 {
 	require(rBEAST)
 	require(data.table)
@@ -510,13 +675,13 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140426<- function()
 	select		<- 'grid-mseq1000'
 	indir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150419_files'
 	#indir		<- '/Users/Oliver/git/HPTN071sim/tmp140914/140716_RUN001_INTERNAL'  
-	outdir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150426_files'
+	outdir		<- '/Users/Oliver/Dropbox\ (Infectious Disease)/OR_Work/2015/2015_PANGEA_ReductionIncidence/150428_files'
 	infiles		<- list.files(indir, '.*INTERNAL.R$', full.names=FALSE)
 	#stopifnot(length(infiles)==1)
 	
-	#	run: no autooptimize on UCLD
+	#	run: no autooptimize on UCLN, use different scalefactors instead
 	selects		<- paste('grid-mseq',c(400, 1000), sep='')
-	for(w in c(0.75, 1, 1.25, 1.5, 1.75, 2))
+	for(w in c(0.6, 0.7, 0.8, 0.9, 0.95))
 	{			
 		for(select in selects)
 		{
@@ -551,19 +716,25 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140426<- function()
 				#	adjust parameter weights: all 1 but higher for UCLD
 				#
 				bxmlo		<- getNodeSet(bxml, "//operators")[[1]]			
-				tmp			<- unlist(lapply( c("hky","site","skygrid.precision","skygrid","branchRates.categories_CLU"), function(x)
+				tmp			<- unlist(lapply( c("hky","site","skygrid.precision","skygrid"), function(x)
 								{															
 									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
 								}))
 				for(x in tmp)
 					xmlAttrs(x)["weight"]	<- 1
+				tmp			<- unlist(lapply( c("branchRates.categories_CLU"), function(x)
+								{															
+									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
+								}))
+				for(x in tmp)
+					xmlAttrs(x)["weight"]	<- 2								
 				tmp			<- unlist(lapply( c("ucld"), function(x)
 								{															
 									getNodeSet(bxmlo, paste('*[descendant::*[contains(@idref,"',x,'")]]',sep=''))
 								}))
 				for(x in tmp)
 				{
-					xmlAttrs(x)["weight"]		<- 5
+					xmlAttrs(x)["weight"]		<- 1
 					xmlAttrs(x)["scaleFactor"]	<- w
 					xmlAttrs(x)["autoOptimize"]	<- 'false'
 				}
@@ -572,9 +743,10 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140426<- function()
 			}
 		}
 	}
+	#	run use LN operator
 }
 
-rbeast.skygrid.hky.weight.allexceptlogpopsize.140424<- function()
+rbeast.skygrid.hky.weight.allexceptlogpopsize.150424<- function()
 {
 	require(rBEAST)
 	tree.id.labelsep		<- '|'
@@ -798,7 +970,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140424<- function()
 	}
 }
 
-rbeast.skygrid.hky.weight.allexceptlogpopsize.140421<- function()
+rbeast.skygrid.hky.weight.allexceptlogpopsize.150421<- function()
 {
 	require(rBEAST)
 	require(data.table)
@@ -928,7 +1100,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140421<- function()
 	}
 }
 
-rbeast.skygrid.hky.weight.allexceptlogpopsize.140420<- function()
+rbeast.skygrid.hky.weight.allexceptlogpopsize.150419<- function()
 {
 	require(rBEAST)
 	require(data.table)
@@ -1041,7 +1213,7 @@ rbeast.skygrid.hky.weight.allexceptlogpopsize.140420<- function()
 			}
 		}
 	}
-	#	weights all the same except skygrid block updater
+	#	weights all the same except skygrid block updater and branch rate categories
 	for(w in c(1, 5, 20, 50))
 	{
 		for(select in selects)

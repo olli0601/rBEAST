@@ -58,7 +58,10 @@ beastxml.multilocus.codon.gtr<- function( file.name, seq.select, phd, verbose=1 
 				rateCategories.dimension= subset(seq.select, CLU_ID==clu)[, 2*(length(unique(TAXON_ID))-1)], verbose=1)
 	}		
 	#	add rate statistic for first cluster
-	beast.add.rateStatistics(bxml, 'branchRates', paste('treeModel_CLU',seq.select[1, CLU_ID], sep=''), paste('branchRates_CLU',seq.select[1, CLU_ID], sep=''))
+	for(clu in seq.select[, unique(CLU_ID)])
+	{
+		beast.add.rateStatistics(bxml, paste('branchRatesStat_CLU',clu, sep=''), paste('treeModel_CLU',clu, sep=''), paste('branchRates_CLU',clu, sep=''))
+	}		
 	#	add GTR CP1 2 3  models
 	for(k in 1:3)
 	{
@@ -161,11 +164,11 @@ beastxml.multilocus.codon.gtr<- function( file.name, seq.select, phd, verbose=1 
 		beast.add.swapOperator(bxml, paste("branchRates.categories_CLU",clu,sep=''), size=1, weight=10, autoOptimize="false")
 	}
 	#	add screen log
-	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", meanrate.idref="branchRates_meanRate", logEvery=2e4)
+	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4)
 	#	add file log
 	beast.add.fileLog(bxml, log.id='fileLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4, 
 			log.fileName=paste(file.name.base, '.log',sep=''), log.overwrite='false',
-			select.id=c('rootHeight', 'ucld', 'gtr', 'alpha', 'skygrid','branchRates'), deselect.id=c('frequencies','categories'))
+			select.id=c('rootHeight', 'ucld', 'gtr', 'alpha', 'skygrid','branchRatesStat'), deselect.id=c('frequencies','categories'))
 	#	add tree log for every transmission cluster
 	#for(clu in seq.select[, unique(CLU_ID)])
 	#{				
@@ -229,7 +232,10 @@ beastxml.multilocus.hky.fixed.topology<- function( file.name, seq.select, phd, v
 				rateCategories.dimension= subset(seq.select, CLU_ID==clu)[, 2*(length(unique(TAXON_ID))-1)], verbose=1)
 	}		
 	#	add rate statistic for first cluster
-	beast.add.rateStatistics(bxml, 'branchRates', paste('treeModel_CLU',seq.select[1, CLU_ID], sep=''), paste('branchRates_CLU',seq.select[1, CLU_ID], sep=''))
+	for(clu in seq.select[, unique(CLU_ID)])
+	{
+		beast.add.rateStatistics(bxml, paste('branchRatesStat_CLU',clu, sep=''), paste('treeModel_CLU',clu, sep=''), paste('branchRates_CLU',clu, sep=''))
+	}	
 	#	add HKY model for first cluster
 	clu			<- seq.select[, unique(CLU_ID)][1]
 	beast.add.hkyModel(bxml, paste("hky_CLU", clu,sep=""), paste("patterns_CLU",clu,sep=''), paste("hky.frequencies_CLU",clu,sep=''),
@@ -296,18 +302,19 @@ beastxml.multilocus.hky.fixed.topology<- function( file.name, seq.select, phd, v
 		beast.add.swapOperator(bxml, paste("branchRates.categories_CLU",clu,sep=''), size=1, weight=1, autoOptimize="false")
 	}
 	#	add screen log
-	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", meanrate.idref="branchRates_meanRate", logEvery=2e4)
+	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4)
 	#	add file log
 	beast.add.fileLog(bxml, log.id='fileLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4, 
 			log.fileName=paste(file.name.base, '.log',sep=''), log.overwrite='false',
-			select.id=c('rootHeight', 'ucld', 'hky', 'alpha', 'skygrid','branchRates'), deselect.id=c('frequencies','categories'))
+			select.id=c('rootHeight', 'ucld', 'hky', 'alpha', 'skygrid','branchRatesStat'), deselect.id=c('frequencies','categories'))
 	#	add tree log for every transmission cluster
-	#for(clu in seq.select[, unique(CLU_ID)])
-	#{				
-	#	beast.add.logTree(bxml, paste("logTree_CLU",clu,sep=''), paste("treeModel_CLU",clu,sep=''), paste("branchRates_CLU",clu,sep=''), 'posterior', 
-	#			logEvery=2e4, nexusFormat='true', sortTranslationTable='true',  
-	#			fileName=paste(file.name.base,'_CLU', clu, '.trees', sep=''), verbose=1)	
-	#}
+	if(with.logTree)
+		for(clu in seq.select[, unique(CLU_ID)])
+		{				
+			beast.add.logTree(bxml, paste("logTree_CLU",clu,sep=''), paste("treeModel_CLU",clu,sep=''), paste("branchRates_CLU",clu,sep=''), 'posterior', 
+					logEvery=2e4, nexusFormat='true', sortTranslationTable='true',  
+					fileName=paste(file.name.base,'_CLU', clu, '.trees', sep=''), verbose=1)	
+		}
 	bxml	
 }
 ######################################################################################
@@ -316,7 +323,7 @@ beastxml.multilocus.hky.fixed.topology<- function( file.name, seq.select, phd, v
 #' @import XML phytools ape data.table reshape2 ggplot2 
 #' @export 
 #' @example example/ex.beastxml.multilocus.hky.fixed.tree.R
-beastxml.multilocus.hky.fixed.tree<- function( file.name, seq.select, phd, verbose=1 )
+beastxml.multilocus.hky.fixed.tree<- function( file.name, seq.select, phd, verbose=1)
 {
 	stopifnot(c("CLU_ID", "TAXON_ID", "TAXON_NAME", "SEQ", "SAMPLINGTIME")%in%names(seq.select))
 	file.name.base	<- gsub('.xml','',rev(strsplit(file.name,'/')[[1]])[1])
@@ -364,8 +371,11 @@ beastxml.multilocus.hky.fixed.tree<- function( file.name, seq.select, phd, verbo
 				mean.idref="ucld.mean", sd.idref="ucld.stdev", meanInRealSpace="true", 
 				rateCategories.dimension= subset(seq.select, CLU_ID==clu)[, 2*(length(unique(TAXON_ID))-1)], verbose=1)
 	}		
-	#	add rate statistic for first cluster
-	beast.add.rateStatistics(bxml, 'branchRates', paste('treeModel_CLU',seq.select[1, CLU_ID], sep=''), paste('branchRates_CLU',seq.select[1, CLU_ID], sep=''))
+	#	add rate statistics for all clusters
+	for(clu in seq.select[, unique(CLU_ID)])
+	{
+		beast.add.rateStatistics(bxml, paste('branchRatesStat_CLU',clu, sep=''), paste('treeModel_CLU',clu, sep=''), paste('branchRates_CLU',clu, sep=''))
+	}	
 	#	add HKY model for first cluster
 	clu			<- seq.select[, unique(CLU_ID)][1]
 	beast.add.hkyModel(bxml, paste("hky_CLU", clu,sep=""), paste("patterns_CLU",clu,sep=''), paste("hky.frequencies_CLU",clu,sep=''),
@@ -427,17 +437,17 @@ beastxml.multilocus.hky.fixed.tree<- function( file.name, seq.select, phd, verbo
 		beast.add.swapOperator(bxml, paste("branchRates.categories_CLU",clu,sep=''), size=1, weight=10, autoOptimize="false")
 	}
 	#	add screen log
-	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", meanrate.idref="branchRates_meanRate", logEvery=2e4)
+	beast.add.screenLog(bxml, log.id='screenLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4)
 	#	add file log
 	beast.add.fileLog(bxml, log.id='fileLog', posterior.idref='posterior', likelihood.idref="likelihood", prior.idref="prior", logEvery=2e4, 
 			log.fileName=paste(file.name.base, '.log',sep=''), log.overwrite='false',
-			select.id=c('rootHeight', 'ucld', 'hky', 'alpha', 'skygrid','branchRates'), deselect.id=c('frequencies','categories'))
+			select.id=c('rootHeight', 'ucld', 'hky', 'alpha', 'skygrid','branchRatesStat'), deselect.id=c('frequencies','categories'))
 	#	add tree log for every transmission cluster
 	#for(clu in seq.select[, unique(CLU_ID)])
 	#{				
-	#	beast.add.logTree(bxml, paste("logTree_CLU",clu,sep=''), paste("treeModel_CLU",clu,sep=''), paste("branchRates_CLU",clu,sep=''), 'posterior', 
-	#			logEvery=2e4, nexusFormat='true', sortTranslationTable='true',  
-	#			fileName=paste(file.name.base,'_CLU', clu, '.trees', sep=''), verbose=1)	
+	#		beast.add.logTree(bxml, paste("logTree_CLU",clu,sep=''), paste("treeModel_CLU",clu,sep=''), paste("branchRates_CLU",clu,sep=''), 'posterior', 
+	#				logEvery=2e4, nexusFormat='true', sortTranslationTable='true',  
+	#				fileName=paste(file.name.base,'_CLU', clu, '.trees', sep=''), verbose=1)	
 	#}
 	bxml	
 }

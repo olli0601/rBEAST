@@ -1214,7 +1214,7 @@ beast.add.fileLog<- function(bxml, log.id='fileLog', select.id=c('rootHeight', '
 beast.add.rateStatistics<- function(bxml, prefix.id, treeModel.id, discretizedBranchRates.id)
 {
 	bxml.beast		<- getNodeSet(bxml, "//beast")[[1]]
-	tmp				<- newXMLNode("rateStatistic", attrs= list(id=paste(prefix.id,'_meanRate',sep=''), name=paste(prefix.id,'_meanRate',sep=''), mode='mean', internal='true', external='true'), parent=bxml.beast, doc=bxml, addFinalizer=T)
+	tmp				<- newXMLNode("rateStatistic", attrs= list(id=paste(prefix.id,'_mean',sep=''), name=paste(prefix.id,'_mean',sep=''), mode='mean', internal='true', external='true'), parent=bxml.beast, doc=bxml, addFinalizer=T)
 	dummy			<- newXMLNode("treeModel", attrs= list(idref=treeModel.id), parent=tmp, doc=bxml, addFinalizer=T)
 	dummy			<- newXMLNode("discretizedBranchRates", attrs= list(idref=discretizedBranchRates.id), parent=tmp, doc=bxml, addFinalizer=T)	
 	tmp				<- newXMLNode("rateStatistic", attrs= list(id=paste(prefix.id,'_coefficientOfVariation',sep=''), name=paste(prefix.id,'_coefficientOfVariation',sep=''), mode='coefficientOfVariation', internal='true', external='true'), parent=bxml.beast, doc=bxml, addFinalizer=T)
