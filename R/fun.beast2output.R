@@ -212,7 +212,7 @@ beast2out.read.trees<- function(
 		cat(paste('\nrm files\n', paste(cmd, collapse='\n')))
 		file.remove(cmd)
 	}
-	mph			<- read.nexus(file)
+	mph			<- ape::read.nexus(file)
 	#	remove burn in
 	tmp			<- regexpr('[0-9]+',names(mph))
 	if(any(tmp<0))	stop('unexpected nexus file without STATE iteration numbers')
