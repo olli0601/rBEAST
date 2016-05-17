@@ -1,5 +1,24 @@
-# Sample .travis.yml for R projects
-
 language: r
-warnings_are_errors: true
-sudo: required
+cache: packages
+warnings_are_errors: false
+
+r_packages:
+  - ape
+  - covr
+  - data.table
+  - ggplot2
+  - knitr
+  - phytools
+  - reshape2
+  - rmarkdown
+  - XML
+
+r_github_packages:
+  - jimhester/lintr
+
+before_install:
+  - tlmgr install index
+
+after_success:
+  - Rscript -e 'library(covr); codecov()'
+  - Rscript -e 'lintr::lint_package()'
