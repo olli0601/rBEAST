@@ -12,4 +12,7 @@ Taxon data.table with additional column SEQ that contains sequences as a charact
 \description{
 Sequences whose name matches the TAXON_ID field are added to the taxon data.table.
 }
+\author{
+Oliver Ratmann
+}
 

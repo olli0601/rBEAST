@@ -191,6 +191,12 @@ beast2out.tip.date.check<- function(ph, fun, ...)
 #'   a value of 1.0 denotes that the original edge lengths are maintained
 #' @param opt.burnin how many phylogenies to discard, an value of will keep all trees
 #' @return a list of phylogenies of type 'phylo'
+#' @examples
+#'   trees_file <- "vignettes/example.trees"
+#'   testit::assert(file.exists(trees_file))
+#'   posterior <- beast2out.read.trees(trees_file)
+#'   testit::assert(length(posterior) == 10)
+#'   testit::assert(class(posterior[[1]]) == "phylo")
 #' @export
 #' @author Oliver Ratmann
 beast2out.read.trees<- function(

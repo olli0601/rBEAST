@@ -7,4 +7,18 @@
 beast.add.from.template(bxml, btemplate, select.after.elt = NA,
   select.to.elt = NA, verbose = 1)
 }
+\arguments{
+\item{bxml}{Undocumented}
+
+\item{btemplate}{Undocumented}
+
+\item{select.after.elt}{Undocumented, NA by default}
+
+\item{select.to.elt}{Undocumented, NA by default}
+
+\item{verbose}{Undocumented, 1 by default}
+}
+\author{
+Oliver Ratmann
+}
 

@@ -7,4 +7,7 @@
 beast.add.monophylyStatistic.for.taxonsets(bxml, treeModel.id,
   taxonset.prefix = "c")
 }
+\author{
+Oliver Ratmann
+}
 

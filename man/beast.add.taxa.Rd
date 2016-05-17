@@ -7,4 +7,7 @@
 beast.add.taxa(bxml, df, beast.date.direction = "forwards",
   beast.date.units = "years", verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

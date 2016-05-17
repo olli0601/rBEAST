@@ -20,6 +20,13 @@ a list of phylogenies of type 'phylo'
 \description{
 Extract a list of phylogenies from a BEAST2 posterior file
 }
+\examples{
+  trees_file <- "vignettes/example.trees"
+  testit::assert(file.exists(trees_file))
+  posterior <- beast2out.read.trees(trees_file)
+  testit::assert(length(posterior) == 10)
+  testit::assert(class(posterior[[1]]) == "phylo")
+}
 \author{
 Oliver Ratmann
 }

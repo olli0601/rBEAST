@@ -7,4 +7,7 @@
 beast.adjust.prior.rootheight(bxml, df,
   rootHeight.idref = "treeModel.rootHeight", verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

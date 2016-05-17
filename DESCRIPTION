@@ -17,3 +17,6 @@ Description: Automated generation of BEAST XML files, with a focus on dating
 License: file LICENSE
 LazyLoad: yes
 RoxygenNote: 5.0.1
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr

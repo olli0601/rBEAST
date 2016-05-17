@@ -7,4 +7,7 @@
 beast.adjust.mcmc(bxml, mcmc.chainLength = NA, mcmc.logEvery = NA,
   mcmc.outfile = NA, verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

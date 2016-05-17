@@ -6,4 +6,7 @@
 \usage{
 beast.adjust.gmrfSkyrideLikelihood(bxml, df, verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

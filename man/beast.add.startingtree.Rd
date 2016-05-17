@@ -8,4 +8,7 @@ beast.add.startingtree(bxml, start.tree.newick,
   beast.newickid = "startingTree", beast.usingDates = "true",
   beast.brlunits = "years", verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

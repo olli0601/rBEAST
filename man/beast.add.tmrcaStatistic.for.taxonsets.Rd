@@ -7,4 +7,7 @@
 beast.add.tmrcaStatistic.for.taxonsets(bxml, treeModel.id = "treeModel",
   taxonset.prefix = "c", includeStem = "false", verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

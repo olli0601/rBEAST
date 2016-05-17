@@ -9,4 +9,7 @@ beast.set.TAXON_NAME(df, select = c("TAXON_ID"), select.sep = "_")
 \value{
 Taxon data.table with additional column TAXON_NAME.
 }
+\author{
+Oliver Ratmann
+}
 

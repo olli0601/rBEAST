@@ -6,4 +6,7 @@
 \usage{
 beast.choose.seq.by.clusters(df.seq, select, verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 

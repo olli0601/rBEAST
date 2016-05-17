@@ -1,7 +1,11 @@
 
 ######################################################################################
 #' @title Set TAXON_NAME field from columns in the taxon data.table.
+#' @param df Undocumented
+#' @param select Undocumented
+#' @param select.sep Undocumented
 #' @return Taxon data.table with additional column TAXON_NAME.
+#' @author Oliver Ratmann
 #' @export
 beast.set.TAXON_NAME<- function( df, select=c('TAXON_ID'), select.sep='_')
 {
@@ -12,7 +16,11 @@ beast.set.TAXON_NAME<- function( df, select=c('TAXON_ID'), select.sep='_')
 ######################################################################################
 #' @title Set SEQ field from sequences in sequences in \code{DNAbin} matrix format
 #' @description Sequences whose name matches the TAXON_ID field are added to the taxon data.table.
+#' @param df Undocumented
+#' @param seq Undocumented
+#' @param verbose Undocumented
 #' @return Taxon data.table with additional column SEQ that contains sequences as a character string.
+#' @author Oliver Ratmann
 #' @export
 beast.set.SEQ	<- function(df, seq, verbose=1)
 {
@@ -40,6 +48,7 @@ beast.set.SEQ	<- function(df, seq, verbose=1)
 ######################################################################################
 #	pool clusters into sets containing roughly 'pool.ntip' sequences
 #' @title Pick sequence data set by type of phylogenetic cluster
+#' @author Oliver Ratmann
 #' @export
 beast.choose.seq.by.clusters<- function(df.seq, select, verbose=1)
 {
@@ -98,6 +107,7 @@ beast.choose.seq.by.clusters<- function(df.seq, select, verbose=1)
 #' @title Pool phylogenetic clusters for separate BEAST runs
 #' @description This function returns a list of data tables. Each data table contains the pooled taxa for a single BEAST run. See Examples.
 # import XML phytools ape data.table reshape2 ggplot2
+#' @author Oliver Ratmann
 #' @export
 #' @example example/ex.beast.pool.cluster.R
 #' @example example/ex.beast.from.template.R
@@ -142,6 +152,7 @@ beast.pool.clusters.by.samplingtime.alwaysincludebeforeyear<- function(cluphy.df
 	pool.df
 }
 ######################################################################################
+#' @author Oliver Ratmann
 beast.pool.clusters.by.samplingtime<- function(cluphy.df, pool.ntip= 130, verbose=1)
 {
 	stopifnot( c('CLU_ID','SAMPLINGTIME','TAXON_ID')%in%names(cluphy.df) )
@@ -162,6 +173,7 @@ beast.pool.clusters.by.samplingtime<- function(cluphy.df, pool.ntip= 130, verbos
 	pool.df
 }
 ######################################################################################
+#' @author Oliver Ratmann
 beast.pool.clusters.by.requiredseq.per.samplingperiod<- function(cluphy.df, pool.ntip.guide=150, pool.ntip.min=c(50, 70, 70, NA, NA), pool.breaks=c(0, 1.596, 3.596, 5.596, 9.596, Inf), verbose=1)
 {
 	stopifnot( c('CLU_ID','SAMPLINGTIME','TAXON_ID')%in%names(cluphy.df) )
@@ -229,6 +241,7 @@ beast.pool.clusters.by.requiredseq.per.samplingperiod<- function(cluphy.df, pool
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
 #	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; beast.alignment.dataType= "nucleotide"; xml.resetTipDate2LastDiag=1
 #' @title	Add taxa to XML file
+#' @author Oliver Ratmann
 #' @export
 beast.add.taxa<- function(bxml, df, beast.date.direction= "forwards", beast.date.units= "years", verbose=1)
 {
@@ -255,6 +268,7 @@ beast.add.taxa<- function(bxml, df, beast.date.direction= "forwards", beast.date
 ######################################################################################
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
 #	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; beast.alignment.dataType= "nucleotide"; xml.resetTipDate2LastDiag=1
+#' @author Oliver Ratmann
 #' @export
 beast.add.alignment<- function(bxml, df, df.seqfield='SEQ', beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
 {
@@ -282,6 +296,7 @@ beast.add.alignment<- function(bxml, df, df.seqfield='SEQ', beast.alignment.id="
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 beast.add.alignment.fromDNAbin<- function(bxml, seq.PROT.RT, beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
 {
 	bxml.beast	<- getNodeSet(bxml, "//beast")[[1]]
@@ -306,6 +321,7 @@ beast.add.alignment.fromDNAbin<- function(bxml, seq.PROT.RT, beast.alignment.id=
 ######################################################################################
 #	add taxa and alignment in bxml from BEASTlabels in df and alignment in seq.PROT.RT
 #	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; beast.alignment.dataType= "nucleotide"; xml.resetTipDate2LastDiag=1
+#' @author Oliver Ratmann
 #' @export
 beast.add.seq<- function(bxml, seq.PROT.RT, df=NULL, beast.label.datepos= 4, beast.label.sep= '_', beast.date.direction= "forwards", beast.date.units= "years", beast.alignment.id="alignment", beast.alignment.dataType= "nucleotide", verbose=1)
 {
@@ -351,6 +367,7 @@ beast.add.seq<- function(bxml, seq.PROT.RT, df=NULL, beast.label.datepos= 4, bea
 }
 ######################################################################################
 #	write nexus file for all sequences specified in df. assumes df has BEASTlabel. assumes seq.DNAbin.matrix and ph contain FASTASampleCode in df.
+#' @author Oliver Ratmann
 #' @export
 beast.writeNexus4Beauti<- function( seq.DNAbin.matrix, df, ph=NULL, file=NULL )
 {
@@ -373,6 +390,7 @@ beast.writeNexus4Beauti<- function( seq.DNAbin.matrix, df, ph=NULL, file=NULL )
 }
 ######################################################################################
 #' @title	Read BEAST ops file
+#' @author Oliver Ratmann
 #' @export
 beast.read.ops<- function(file)
 {
@@ -397,6 +415,7 @@ beast.read.ops<- function(file)
 }
 ######################################################################################
 #' @title	Read BEAST log file
+#' @author Oliver Ratmann
 #' @export
 beast.read.log<- function(file, select=c('state','likelihood'), verbose=1)
 {
@@ -410,6 +429,7 @@ beast.read.log<- function(file, select=c('state','likelihood'), verbose=1)
 }
 ######################################################################################
 #	read tip stem samples after burn in from log file and return upper left points of a histogram of the Monte Carlo sample
+#' @author Oliver Ratmann
 #' @export
 beast.read.log2tstem<- function(file.log, file.xml, beastlabel.idx.samplecode=6, burn.in= 5e6, breaks.n= 30, verbose=0)
 {
@@ -452,6 +472,7 @@ beast.read.log2tstem<- function(file.log, file.xml, beastlabel.idx.samplecode=6,
 }
 ######################################################################################
 #' @title Add monophylyStatistics for each phylogenetic cluster to XML file
+#' @author Oliver Ratmann
 #' @export
 beast.add.monophylyStatistic.for.taxonsets<- function(bxml, treeModel.id, taxonset.prefix='c')
 {
@@ -500,6 +521,7 @@ beast.add.monophylyStatistic.for.taxonsets<- function(bxml, treeModel.id, taxons
 ######################################################################################
 #	For each taxonset, get a list of tmrcaStatistics. Assumes all tmrcaStatistics share a treeModel.id and the same includeStem attribute
 #' @title	Add tmrcaStatistic for phylogenetic clusters to XML file
+#' @author Oliver Ratmann
 #' @export
 beast.add.tmrcaStatistic.for.taxonsets<- function(bxml,  treeModel.id='treeModel', taxonset.prefix='c', includeStem="false", verbose=1)
 {
@@ -539,6 +561,7 @@ beast.add.tmrcaStatistic.for.taxonsets<- function(bxml,  treeModel.id='treeModel
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.get.sequences<- function(bxml, verbose=1)
 {
@@ -557,6 +580,7 @@ beast.get.sequences<- function(bxml, verbose=1)
 }
 ######################################################################################
 #	For each tip: construct a prior for the corresponding tmrcaStatistics
+#' @author Oliver Ratmann
 #' @export
 beast.get.tipPrior<- function(bxml, df, btmrcaStatistics.tips, xml.prior4stem="uniform", beast.label.negpos=2, beast.label.diagpos=3, beast.label.datepos=4, verbose=1)
 {
@@ -583,6 +607,7 @@ beast.get.tipPrior<- function(bxml, df, btmrcaStatistics.tips, xml.prior4stem="u
 ######################################################################################
 #	For each tip: add a taxonset, tmrcaStatistic, and potentially a reference to fileLog to 'bxml'
 #	The aim of this as standalone is to log the length of tip stems.
+#' @author Oliver Ratmann
 #' @export
 beast.add.taxonsets4tips<- function(bxml, df, log=1, verbose=1)
 {
@@ -615,6 +640,7 @@ beast.add.taxonsets4tips<- function(bxml, df, log=1, verbose=1)
 }
 ######################################################################################
 #	For each tip: add a taxonset, tmrcaStatistic, prior for the tmrcaStatistics and potentially a reference to fileLog to 'bxml'
+#' @author Oliver Ratmann
 #' @export
 beast.add.prior4tips<- function(bxml, df, xml.prior4stem="uniform", beast.label.datepos=4, verbose=1)
 {
@@ -634,6 +660,7 @@ beast.add.prior4tips<- function(bxml, df, xml.prior4stem="uniform", beast.label.
 ######################################################################################
 #	create xml file from btemplate and seq.PROT.RT, using seq in df
 # 	beast.label.datepos= 4; beast.label.sep= '_'; beast.date.direction= "forwards"; beast.date.units= "years"; verbose=1; xml.prior4tipstem="uniform"; xml.resetTipDate2LastDiag=1
+#' @author Oliver Ratmann
 #' @export
 beast.get.xml<- function(	btemplate, seq.PROT.RT, df, file, ph=NULL, xml.monophyly4clusters=0, xml.taxon4tipstem=0, xml.prior4tipstem=NA,
 		beast.label.datepos= 4, beast.label.sep= '_', beast.date.direction= "forwards", beast.usingDates="true", beast.date.units= "years", beast.mcmc.chainLength=50000000, verbose=1)
@@ -713,6 +740,12 @@ beast.get.xml<- function(	btemplate, seq.PROT.RT, df, file, ph=NULL, xml.monophy
 }
 ######################################################################################
 #' @title Copy XML elements from template
+#' @param bxml Undocumented
+#' @param btemplate Undocumented
+#' @param select.after.elt Undocumented, NA by default
+#' @param select.to.elt Undocumented, NA by default
+#' @param verbose Undocumented, 1 by default
+#' @author Oliver Ratmann
 #' @export
 beast.add.from.template<- function(bxml, btemplate, select.after.elt=NA, select.to.elt=NA, verbose=1)
 {
@@ -754,6 +787,7 @@ beast.add.from.template<- function(bxml, btemplate, select.after.elt=NA, select.
 }
 ######################################################################################
 #' @title	Adjust dimension parameter of gmrfSkyrideLikelihood
+#' @author Oliver Ratmann
 #' @export
 beast.adjust.gmrfSkyrideLikelihood<- function(bxml, df, verbose=1)
 {
@@ -774,6 +808,7 @@ beast.adjust.gmrfSkyrideLikelihood<- function(bxml, df, verbose=1)
 }
 ######################################################################################
 #' @title	Adjust MCMC element
+#' @author Oliver Ratmann
 #' @export
 beast.adjust.mcmc<- function(bxml, mcmc.chainLength=NA, mcmc.logEvery=NA, mcmc.outfile=NA, verbose=1)
 {
@@ -832,6 +867,7 @@ beast.adjust.mcmc<- function(bxml, mcmc.chainLength=NA, mcmc.logEvery=NA, mcmc.o
 ######################################################################################
 #	if rootheight prior uniform, sets lower bound to earliest sampling time in data set
 #' @title Ajust lower bound of uniform prior on root height
+#' @author Oliver Ratmann
 #' @export
 beast.adjust.prior.rootheight<- function(bxml, df, rootHeight.idref='treeModel.rootHeight', verbose=1)
 {
@@ -850,6 +886,7 @@ beast.adjust.prior.rootheight<- function(bxml, df, rootHeight.idref='treeModel.r
 }
 ######################################################################################
 #	For each cluster, create a taxonset. Assumes df has BEASTlabel and cluster
+#' @author Oliver Ratmann
 #' @export
 beast.add.taxonsets.for.clusters	<- function(bxml, df, taxonset.prefix='c')
 {
@@ -876,6 +913,7 @@ beast.add.taxonsets.for.clusters	<- function(bxml, df, taxonset.prefix='c')
 }
 ######################################################################################
 #	For each tip, create a taxonset. Assumes df has BEASTlabel
+#' @author Oliver Ratmann
 #' @export
 beast.get.taxonsets4tips	<- function(bxml, df)
 {
@@ -888,6 +926,7 @@ beast.get.taxonsets4tips	<- function(bxml, df)
 	ans
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.variableDemographic<- function(bxml, demographic.id, treeModel.ids, coalescent.id, type='stepwise', useMidpoints='true',
 												popSize.id='demographic.popSize', popSize.value='0.091',
@@ -924,6 +963,7 @@ beast.add.variableDemographic<- function(bxml, demographic.id, treeModel.ids, co
 	bxml
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.set.fileNameTrunk<- function(bxml, fileNameTrunk)
 {
@@ -935,6 +975,7 @@ beast.set.fileNameTrunk<- function(bxml, fileNameTrunk)
 	dummy		<- sapply(seq_along(bxml.onodes), function(i){		xmlAttrs(bxml.onodes[[i]])["fileName"]<- tmp[i]		})
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.VDAnalysis<- function(bxml, VDAnalysis.id, logFileName, treeFileNames, csvfileName, populationModelType='stepwise', populationFirstColumn='demographic.popSize1', indicatorsFirstColumn='demographic.indicators1', burnIn="0.1", useMidpoints="true", verbose=1)
 {
@@ -963,6 +1004,7 @@ beast.add.VDAnalysis<- function(bxml, VDAnalysis.id, logFileName, treeFileNames,
 	bxml
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.logParameter<- function(bxml, logParameter.ids, verbose=1)
 {
@@ -988,6 +1030,7 @@ beast.add.logTree<- function(bxml, logTree.id, treeModel.id, discretizedBranchRa
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.upDownOperator<- function(bxml, up.parameter.id, down.parameter.id, scaleFactor=0.75, weight=1)
 {
@@ -1002,6 +1045,7 @@ beast.add.upDownOperator<- function(bxml, up.parameter.id, down.parameter.id, sc
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.uniformOperator<- function(bxml, parameter.id, weight=1)
 {
@@ -1011,6 +1055,7 @@ beast.add.uniformOperator<- function(bxml, parameter.id, weight=1)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.deltaExchangeOperator<- function(bxml, parameter.id, delta=0.75, parameterWeights=c(948, 948, 948), weight=1)
 {
@@ -1020,6 +1065,7 @@ beast.add.deltaExchangeOperator<- function(bxml, parameter.id, delta=0.75, param
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.gmrfGridBlockUpdateOperator<- function(bxml, parameter.id, scaleFactor=2, weight=2)
 {
@@ -1029,6 +1075,7 @@ beast.add.gmrfGridBlockUpdateOperator<- function(bxml, parameter.id, scaleFactor
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.scaleOperator<- function(bxml, parameter.id, scaleFactor=0.75, weight=0.1, autoOptimize="true")
 {
@@ -1038,6 +1085,7 @@ beast.add.scaleOperator<- function(bxml, parameter.id, scaleFactor=0.75, weight=
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.uniformIntegerOperator<- function(bxml, parameter.id, weight=0.1)
 {
@@ -1047,6 +1095,7 @@ beast.add.uniformIntegerOperator<- function(bxml, parameter.id, weight=0.1)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.swapOperator<- function(bxml, parameter.id, size=1, weight=0.1, autoOptimize='false')
 {
@@ -1056,6 +1105,7 @@ beast.add.swapOperator<- function(bxml, parameter.id, size=1, weight=0.1, autoOp
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.likelihood<- function(bxml, id, likelihood.term.ids)
 {
@@ -1066,6 +1116,7 @@ beast.add.likelihood<- function(bxml, id, likelihood.term.ids)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.priors<- function(bxml, prior.id)
 {
@@ -1074,6 +1125,7 @@ beast.add.priors<- function(bxml, prior.id)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.exponentialPrior<- function(bxml, idref, mean, offset)
 {
@@ -1083,6 +1135,7 @@ beast.add.exponentialPrior<- function(bxml, idref, mean, offset)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.logNormalPrior<- function(bxml, idref, mean, stdev, offset=0, meanInRealSpace='false')
 {
@@ -1092,6 +1145,7 @@ beast.add.logNormalPrior<- function(bxml, idref, mean, stdev, offset=0, meanInRe
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.gammaPrior<- function(bxml, idref, shape, scale, offset)
 {
@@ -1101,6 +1155,7 @@ beast.add.gammaPrior<- function(bxml, idref, shape, scale, offset)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.uniformPrior<- function(bxml, idref, lower, upper)
 {
@@ -1110,6 +1165,7 @@ beast.add.uniformPrior<- function(bxml, idref, lower, upper)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.gmrfSkyGridPrior<- function(bxml, idref)
 {
@@ -1118,6 +1174,7 @@ beast.add.gmrfSkyGridPrior<- function(bxml, idref)
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.mcmc<- function(bxml, mcmc.id, posterior.id='posterior', prior.idref='prior', likelihood.idref='likelihood', mcmc.chainLength=2e6, mcmc.autoOptimize='true', mcmc.operatorAnalysis=NA)
 {
@@ -1129,6 +1186,7 @@ beast.add.mcmc<- function(bxml, mcmc.id, posterior.id='posterior', prior.idref='
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.operators<- function(bxml, operators.id, operators.optimizationSchedule="log")
 {
@@ -1137,6 +1195,7 @@ beast.add.operators<- function(bxml, operators.id, operators.optimizationSchedul
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.screenLog<- function(bxml, log.id='screenLog', posterior.idref=NA, likelihood.idref=NA, prior.idref=NA, meanrate.idref=NA, logEvery=1e4, dp=4, sf=6, width=12)
 {
@@ -1165,6 +1224,7 @@ beast.add.screenLog<- function(bxml, log.id='screenLog', posterior.idref=NA, lik
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.fileLog<- function(bxml, log.id='fileLog', select.id=c('rootHeight', 'ucld', 'hky', 'skygrid','branchRates'), deselect.id=c('frequencies','categories'), posterior.idref=NA, likelihood.idref=NA, prior.idref=NA, logEvery=1e4, log.fileName=NA, log.overwrite='false')
 {
@@ -1210,6 +1270,7 @@ beast.add.fileLog<- function(bxml, log.id='fileLog', select.id=c('rootHeight', '
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.rateStatistics<- function(bxml, prefix.id, treeModel.id, discretizedBranchRates.id)
 {
@@ -1226,6 +1287,7 @@ beast.add.rateStatistics<- function(bxml, prefix.id, treeModel.id, discretizedBr
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.siteModel<- function(bxml, siteModel.id, substitutionModel.id, substitutionModel.class='gtrModel',
 										relativeRate.id=NA, relativeRate.idref=NA, relativeRate.value=NA, relativeRate.lower=NA,
@@ -1254,6 +1316,7 @@ beast.add.siteModel<- function(bxml, siteModel.id, substitutionModel.id, substit
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.hkyModel<- function(bxml, hkyModel.id, patterns.id, frequencies.id,
 		rate.id=NA, rate.idref=NA, rate.value=NA, rate.lower=NA, frequencies.dimension='4', frequencyModel.dataType='nucleotide', verbose=1)
@@ -1276,6 +1339,7 @@ beast.add.hkyModel<- function(bxml, hkyModel.id, patterns.id, frequencies.id,
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.gtrModel<- function(bxml, gtrModel.id, patterns.id, frequencies.id,
 									rateAC.id=NA, rateAC.idref=NA, rateAC.value=NA, rateAC.lower=NA,
@@ -1323,6 +1387,7 @@ beast.add.gtrModel<- function(bxml, gtrModel.id, patterns.id, frequencies.id,
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.exponentialDistributionModel<- function(bxml, parent, id, mean.id, mean.value)
 {
@@ -1333,6 +1398,7 @@ beast.add.exponentialDistributionModel<- function(bxml, parent, id, mean.id, mea
 	bxml
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.logNormalDistributionModel<- function(bxml, parent, mean.id, mean.idref, mean.value, mean.lower, sd.id, sd.idref, sd.value, sd.lower, meanInRealSpace="true")
 {
@@ -1351,6 +1417,7 @@ beast.add.logNormalDistributionModel<- function(bxml, parent, mean.id, mean.idre
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.gmrfskygrid<- function(bxml, gmrfSkyGridLikelihood.id, populationSizes.id, precisionParameter.id, numGridPoints.id, cutOff.id, treeModel.ids,
 										populationSizes.dimension, populationSizes.value,
@@ -1379,6 +1446,7 @@ beast.add.gmrfskygrid<- function(bxml, gmrfSkyGridLikelihood.id, populationSizes
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.discretizedBranchRates<- function(bxml, discretizedBranchRates.id, treeModel.id, rateCategories.id,
 													mean.id=NA, mean.idref=NA, mean.value=NA, mean.lower=NA, sd.id=NA, sd.idref=NA, sd.value=NA, sd.lower=NA, meanInRealSpace='true', rateCategories.dimension="NA", verbose=1)
@@ -1395,6 +1463,7 @@ beast.add.discretizedBranchRates<- function(bxml, discretizedBranchRates.id, tre
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.treeLikelihood<- function(bxml, treeLikelihood.id, patterns.id, treeModel.id, siteModel.id, discretizedBranchRates.id, useAmbiguities='false', verbose=1)
 {
@@ -1409,6 +1478,7 @@ beast.add.treeLikelihood<- function(bxml, treeLikelihood.id, patterns.id, treeMo
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.treemodel<- function(bxml, treemodel.id, rootHeight.id, internalNodeHeights.id, allInternalNodeHeights.id, newick.id=NA, internalNodes='true', rootNode='true', verbose=1)
 {
@@ -1427,6 +1497,7 @@ beast.add.treemodel<- function(bxml, treemodel.id, rootHeight.id, internalNodeHe
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.compoundParameter<- function(bxml, compoundParameter.id, select.id='site.mu', verbose=1)
 {
@@ -1446,6 +1517,7 @@ beast.add.compoundParameter<- function(bxml, compoundParameter.id, select.id='si
 	invisible(bxml)
 }
 ######################################################################################
+#' @author Oliver Ratmann
 #' @export
 beast.add.patterns<- function(bxml, beast.patterns.id, alignment.id, beast.patterns.from, beast.patterns.every=3, beast.patterns.strip='false', verbose=1)
 {
@@ -1465,6 +1537,7 @@ beast.add.patterns<- function(bxml, beast.patterns.id, alignment.id, beast.patte
 #' @return Starting tree in newick format
 #' @example example/ex.beast.from.template.R
 #' @seealso \code{\link{beastxml.from.template}}
+#' @author Oliver Ratmann
 #' @export
 beast.get.startingtree<- function(ph, df, starttree.rootHeight=NA, origin.value=NA, verbose=1)
 {
@@ -1514,6 +1587,7 @@ beast.get.startingtree<- function(ph, df, starttree.rootHeight=NA, origin.value=
 # 	extract starting tree from 'ph' by tips in 'df'. Only keeps tree topology and resets branch lengths so that the maximum root distance is 'beast.rootHeight'
 #	beast.rootHeight= 35; beast.usingDates= "false"; beast.newickid= "startingTree"
 #' @title Add starting tree to XML
+#' @author Oliver Ratmann
 #' @export
 beast.add.startingtree<- function(bxml, start.tree.newick, beast.newickid= "startingTree", beast.usingDates="true", beast.brlunits="years", verbose=1)
 {

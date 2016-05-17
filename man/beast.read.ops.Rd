@@ -6,4 +6,7 @@
 \usage{
 beast.read.ops(file)
 }
+\author{
+Oliver Ratmann
+}
 

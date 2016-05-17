@@ -64,6 +64,9 @@ for( pid in seq_along(df.clupool) )
 	saveXML(bxml, file=paste(outdir.xml,gsub('.xml', paste('_pool',pid,'.xml',sep=''),outfile.xml),sep='/'))	
 }
 }
+\author{
+Oliver Ratmann
+}
 \seealso{
 \code{\link{beastxml.from.template}}
 }

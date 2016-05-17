@@ -6,4 +6,7 @@
 \usage{
 beast.read.log(file, select = c("state", "likelihood"), verbose = 1)
 }
+\author{
+Oliver Ratmann
+}
 
