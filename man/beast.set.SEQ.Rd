@@ -6,6 +6,13 @@
 \usage{
 beast.set.SEQ(df, seq, verbose = 1)
 }
+\arguments{
+\item{df}{Undocumented}
+
+\item{seq}{Undocumented}
+
+\item{verbose}{Undocumented}
+}
 \value{
 Taxon data.table with additional column SEQ that contains sequences as a character string.
 }

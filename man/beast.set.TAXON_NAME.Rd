@@ -6,6 +6,13 @@
 \usage{
 beast.set.TAXON_NAME(df, select = c("TAXON_ID"), select.sep = "_")
 }
+\arguments{
+\item{df}{Undocumented}
+
+\item{select}{Undocumented}
+
+\item{select.sep}{Undocumented}
+}
 \value{
 Taxon data.table with additional column TAXON_NAME.
 }

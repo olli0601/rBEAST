@@ -13,7 +13,7 @@ This vignette shows how to parse a BEAST2 posterior file using `rBEAST`.
 
 Load the `rBEAST` package:
 
-```{r}
+```{r message = FALSE}
 library(rBEAST)
 ```
 

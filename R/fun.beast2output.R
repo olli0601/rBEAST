@@ -205,7 +205,7 @@ beast2out.read.trees<- function(
   opt.burnin=0
 )
 {
-	tmp			<- readLines(file, n=2e3)
+	tmp			<- readLines(file, n=2e3, warn = FALSE)
 	tmp			<- which( grepl('#NEXUS', tmp) )
 	if(length(tmp)>1)
 	{
