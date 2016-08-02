@@ -199,7 +199,7 @@ beast2out.tip.date.check<- function(ph, fun, ...)
 #'   testit::assert(class(posterior[[1]]) == "phylo")
 #' @export
 #' @author Oliver Ratmann
-beast2out.read.trees<- function(
+beast2out.read.trees <- function(
   file,
   opt.rescale.edge.length= 1.,
   opt.burnin=0
