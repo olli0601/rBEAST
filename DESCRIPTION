@@ -19,5 +19,6 @@ LazyLoad: yes
 RoxygenNote: 5.0.1
 Suggests: knitr,
     rmarkdown,
+    testit,
     testthat
 VignetteBuilder: knitr
