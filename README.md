@@ -1,6 +1,6 @@
 # rBEAST
 
-[![Build Status](https://travis-ci.org/richelbilderbeek/rBEAST.svg?branch=master)](https://travis-ci.org/richelbilderbeek/rBEAST)
+[![Build Status](https://travis-ci.org/olli0601/rBEAST.svg?branch=master)](https://travis-ci.org/olli0601/rBEAST)
 
 Automated generation of BEAST XML files, with a focus on dating phylogenies of HIV sequences
 
